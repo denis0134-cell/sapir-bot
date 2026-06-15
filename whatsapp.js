@@ -1,13 +1,20 @@
 const axios = require('axios');
 
+const BASE = 'https://graph.facebook.com/v18.0';
+
 async function sendMessage(to, text) {
   try {
     await axios.post(
-      'https://waba.360dialog.io/v1/messages',
-      { to, type: 'text', text: { body: text } },
+      `${BASE}/${process.env.META_PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'text',
+        text: { body: text }
+      },
       {
         headers: {
-          'D360-API-KEY': process.env.DIALOG360_API_KEY,
+          Authorization: `Bearer ${process.env.META_ACCESS_TOKEN}`,
           'Content-Type': 'application/json'
         }
       }
