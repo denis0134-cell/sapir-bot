@@ -11,9 +11,11 @@ async function handleIncomingMessage(message) {
 
   console.log(`[Handler] ${phone}: "${text}"`);
 
-  if (phone === process.env.DENIS_PHONE) {
-    await handleDenisCommand(phone, text);
-    return;
+    const isDenisCommand = /^(הצעה|סיכום)\s*\|/.test(text);
+  if (phone === process.env.DENIS_PHONE && isDenisCommand) {
+        await handleDenisCommand(phone, text);
+        return;
+    
   }
 
   await handleLeadMessage(phone, text);
