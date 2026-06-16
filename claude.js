@@ -13,7 +13,7 @@ async function generateResponse(conversationHistory) {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-        model: 'claude-sonnet-4-6',
+                model: 'claude-sonnet-4-5',
         max_tokens: 1000,
         system: getSystemPrompt(),
         messages: conversationHistory
@@ -53,7 +53,7 @@ async function extractLeadInfo(conversationHistory) {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-        model: 'claude-sonnet-4-6',
+                model: 'claude-sonnet-4-5',
         max_tokens: 500,
         messages: [...conversationHistory, { role: 'user', content: prompt }]
       },
