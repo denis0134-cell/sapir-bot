@@ -30,11 +30,13 @@ async function deployProposal(htmlContent, clientName) {
   };
 
   // Step 1: Create new site with a unique name
-  const slug = clientName
+  // Only ASCII chars allowed in Netlify subdomain
+  const slug = (clientName || 'lead')
     .toLowerCase()
-    .replace(/[^א-תa-z0-9]/g, '-')
+    .replace(/[^a-z0-9]/g, '-')
     .replace(/-+/g, '-')
-    .substring(0, 20);
+    .replace(/^-|-$/g, '')
+    .substring(0, 15) || 'lead';
   const siteName = `sapir-${slug}-${Date.now()}`;
 
   console.log(`[Netlify] Creating site: ${siteName}`);
