@@ -265,7 +265,7 @@ async function handleDenisAdmin(denisPhone, text) {
   const proposalKeywords = ['הצעת מחיר', 'הצעה', 'לבנות הצעה', 'proposal'];
   if (proposalKeywords.some(k => text.includes(k))) {
     await sendMessage(denisPhone,
-      'כדי לבנות הצעה, שלח/י פרטי הלקוח בפורמט חופשי, לדוגמה:\n\n' +
+      'כדי לבנות הצעה, שלח פרטי הלקוח בפורמט חופשי, לדוגמה:\n\n' +
       'שם: יוסי כהן\n' +
       'עסק: מספרה תל אביב\n' +
       'מצב: עובד לבד, אין לקוחות חדשים\n' +
@@ -275,6 +275,16 @@ async function handleDenisAdmin(denisPhone, text) {
       'מחיר שדיברנו: 13,900\n\n' +
       'ואני אבנה את הסיכום + הצעה תוך שניות ⚡'
     );
+    return;
+  }
+
+  // SHORT casual messages — friendly reply
+  const greetings = ['מה שלומך', 'מה שלומכם', 'שלום', 'היי', 'הי', 'בוקר טוב', 'ערב טוב', 'לילה טוב', 'מה נשמע', 'מה קורה', 'תודה', 'תודה רבה', 'כל הכבוד', 'יפה', 'מעולה', 'בסדר'];
+  if (greetings.some(g => text.includes(g))) {
+    const hour = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false });
+    const h = parseInt(hour);
+    const greeting = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
+    await sendMessage(denisPhone, greeting + ' דניס 💪\nהכל מוכן לעזור. שלח שם לקוח לסיכום, פרטי לקוח להצעה, או "פקודות" לרשימה מלאה.');
     return;
   }
 
