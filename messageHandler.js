@@ -68,12 +68,50 @@ async function handleDenisCommand(denisPhone, text) {
     return;
   }
 
-  // ── Client summary command: סכם | [raw text about client] ──
-  if (parts[0] === 'סכם' && parts.length >= 2) {
-    const rawText = parts.slice(1).join('|').trim();
-    if (!rawText) { await sendMessage(denisPhone, '📝 שלח: סכם | [פרטים על הלקוח]'); return; }
+  // ── Client summary command ──
+  // Supports: "סכם | [text]" OR "סכם [text]" OR long descriptive messages about clients
+  const isSummaryRequest = (
+    parts[0] === 'סכם' ||
+    text.startsWith('סכם ') ||
+    text.startsWith('תסכם') ||
+    text.startsWith('סיכום') ||
+    text.includes('תשלחי לי סיכום') ||
+    text.includes('תשלח לי סיכום') ||
+    text.includes('בקשה סיכום') ||
+    (text.length > 60 && (text.includes('לקוח') || text.includes('לקוחה')) && !text.includes('|'))
+  );
+
+  if (isSummaryRequest) {
+    // Extract the raw text - remove trigger words
+    let rawText = text
+      .replace(/^סכם\s*\|?\s*/,'')
+      .replace(/^תסכם\s*לי\s*/,'')
+      .replace(/^סיכום\s*\|?\s*/,'')
+      .trim();
+    
+    // If message was "היי תשלחי לי סיכום מפורט לפי כל המידע שארשום לך על לקוחה"
+    // wait for the actual info in next message — store state
+    if (rawText.length < 20) {
+      await sendMessage(denisPhone, '📝 בסדר, שלח/י את הפרטים על הלקוח ואני אסכם.');
+      // Store pending summary state
+      const { upsertLead } = require('./leads');
+      upsertLead(denisPhone, { pendingSummary: true });
+      return;
+    }
+
     await sendMessage(denisPhone, '⏳ מסכם...');
     const summary = await summarizeClient(rawText);
+    await sendMessage(denisPhone, summary);
+    return;
+  }
+
+  // ── Check if Denis sent client info after requesting summary ──
+  const denisLead = getLead(denisPhone);
+  if (denisLead && denisLead.pendingSummary && text.length > 20 && !text.includes('|')) {
+    const { upsertLead } = require('./leads');
+    upsertLead(denisPhone, { pendingSummary: false });
+    await sendMessage(denisPhone, '⏳ מסכם...');
+    const summary = await summarizeClient(text);
     await sendMessage(denisPhone, summary);
     return;
   }
