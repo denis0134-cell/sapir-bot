@@ -7,15 +7,32 @@ const { parseNaturalCommand } = require('./commandParser');
 
 async function handleDenisAdmin(denisPhone, text) {
 
-  // ── Denis photo update: תמונה | [URL] ──
+  // ── Denis photo update: תמונה | [URL or Instagram URL] ──
   if (text.startsWith('תמונה |') || text.startsWith('תמונה שלי |') || text.startsWith('עדכן תמונה |')) {
-    const photoUrl = text.split('|').slice(1).join('|').trim();
-    if (!photoUrl.startsWith('http')) {
-      await sendMessage(denisPhone, '❌ שלח URL ישיר לתמונה. לדוגמה: תמונה | https://example.com/photo.jpg');
+    const rawUrl = text.split('|').slice(1).join('|').trim();
+    if (!rawUrl.startsWith('http')) {
+      await sendMessage(denisPhone, '❌ שלח URL. דוגמה: תמונה | https://instagram.com/username');
       return;
     }
+
+    let photoUrl = rawUrl;
+
+    // If it's an Instagram profile page — try to extract photo
+    if (rawUrl.includes('instagram.com')) {
+      await sendMessage(denisPhone, '⏳ מחלץ תמונה מאינסטגרם...');
+      const { fetchSocialPhoto } = require('./socialPhoto');
+      const extracted = await fetchSocialPhoto(rawUrl);
+      if (extracted) {
+        photoUrl = extracted;
+        console.log('[Admin] Extracted Instagram photo:', photoUrl.substring(0, 80));
+      } else {
+        await sendMessage(denisPhone, '⚠️ לא הצלחתי לחלץ תמונה אוטומטית.\n\nשלח URL ישיר לתמונה שלך (לדוגמה מ-Instagram → לחיצה ארוכה על התמונה → העתק קישור).');
+        return;
+      }
+    }
+
     upsertLead(denisPhone, { myPhotoUrl: photoUrl });
-    await sendMessage(denisPhone, '✅ תמונה נשמרה! תופיע בכל ההצעות הבאות 📸\n\n' + photoUrl);
+    await sendMessage(denisPhone, '✅ תמונה נשמרה! תופיע בכל ההצעות הבאות 📸');
     return;
   }
 
