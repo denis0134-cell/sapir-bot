@@ -288,6 +288,19 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // LAUGHTER DETECTION — חחחח, haha, lol, 😂
+  if (/^[ח]{2,}$|^(ha){2,}|^lol$|^haha|^😂|^🤣/i.test(text.trim())) {
+    const reactions = [
+      'שמחה שצחקת! 😄 רוצה עוד בדיחה?',
+      'חחח גם אני 😂 אני פה כל השבוע!',
+      'אאאא הצלחתי! 🎉 עוד אחת?',
+      'זו הייתה הטובה שלי 😏 יש לי עוד...',
+      'תמיד שמח לשמוע שאתה צוחק 😁 רוצה עוד?'
+    ];
+    await sendMessage(denisPhone, reactions[Math.floor(Math.random() * reactions.length)]);
+    return;
+  }
+
   // JOKES & HUMOR
   const jokeWords = ['בדיחה', 'בדיחות', 'תספרי', 'תצחיקי', 'ספרי', 'עוד אחת', 'עוד בדיחה', 'עוד', 'humor', 'joke', 'צחוק', 'מצחיק', 'תצחיקי'];
   // Only trigger for joke context if 'עוד' alone — check short messages
