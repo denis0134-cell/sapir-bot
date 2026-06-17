@@ -7,6 +7,18 @@ const { parseNaturalCommand } = require('./commandParser');
 
 async function handleDenisAdmin(denisPhone, text) {
 
+  // ── Denis photo update: תמונה | [URL] ──
+  if (text.startsWith('תמונה |') || text.startsWith('תמונה שלי |') || text.startsWith('עדכן תמונה |')) {
+    const photoUrl = text.split('|').slice(1).join('|').trim();
+    if (!photoUrl.startsWith('http')) {
+      await sendMessage(denisPhone, '❌ שלח URL ישיר לתמונה. לדוגמה: תמונה | https://example.com/photo.jpg');
+      return;
+    }
+    upsertLead(denisPhone, { myPhotoUrl: photoUrl });
+    await sendMessage(denisPhone, '✅ תמונה נשמרה! תופיע בכל ההצעות הבאות 📸\n\n' + photoUrl);
+    return;
+  }
+
   // ── Form command: deploy client form and return URL ──
   if (/^(טופס|תשלח טופס|שלח טופס|form)/i.test(text)) {
     await sendMessage(denisPhone, '⏳ מכין טופס...');
