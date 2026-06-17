@@ -1,5 +1,6 @@
 const { sendMessage, notifyDenis } = require('./whatsapp');
 const { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory } = require('./claude');
+const { handleDenisAdmin } = require('./handleAdmin');
 const { getLead, upsertLead, addMessage, getConversation, findLeadsByName, getNamedLeads } = require('./leads');
 const { deployProposal } = require('./netlify');
 const { generateProposalHTML } = require('./proposal');
