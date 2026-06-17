@@ -13,6 +13,7 @@ function generateProposalHTML(data) {
     originalPrice = null,
     calendarLink = process.env.CALENDAR_LINK,
     clientPhotoUrl = null,
+    denisPhotoUrl = null,
     headline = null,
     subheadline = null,
     highlightPhrase = null
@@ -320,8 +321,16 @@ footer{text-align:center;padding:40px 24px;border-top:1px solid var(--border);co
 <div class="section" style="text-align:center">
   <div class="sec-label" data-aos="fade-up" style="justify-content:center">הצעד הבא</div>
   <h2 class="sec-title" data-aos="fade-up" data-aos-delay="60">שריין שיחה עם דניס<br><span class="teal-text">— 20 דקות שישנו הכל</span></h2>
-  <p class="sec-sub" style="margin:0 auto 40px" data-aos="fade-up" data-aos-delay="100">שיחה חינמית, ממוקדת, ללא מחויבות. דניס ייבנה הצעה אישית שמתאימה לך בדיוק.</p>
-  <a href="${calendarLink}" class="cta-btn" target="_blank" data-aos="zoom-in" data-aos-delay="140">📅 שריין שיחה עם דניס ←</a>
+  ${denisPhotoUrl ? `
+  <div style="display:flex;align-items:center;gap:20px;justify-content:center;margin:0 auto 32px;max-width:480px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px" data-aos="fade-up" data-aos-delay="80">
+    <img src="${denisPhotoUrl}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);flex-shrink:0" onerror="this.parentElement.style.display='none'" alt="דניס פול">
+    <div style="text-align:right">
+      <div style="font-size:17px;font-weight:800;margin-bottom:4px">דניס פול</div>
+      <div style="font-size:13px;color:var(--gold);margin-bottom:8px">יועץ מכירות בכיר | מכללת ספיר זיסמן</div>
+      <div style="font-size:13px;color:#aaa">20 דקות ממוקדות ← תוצאה ברורה</div>
+    </div>
+  </div>` : '<div style="height:16px"></div>'}
+  <a href="${calendarLink}" class="cta-btn" target="_blank" data-aos="zoom-in" data-aos-delay="120">📅 שריין שיחה עם דניס ←</a>
 </div>
 
 <div class="divider"></div>
@@ -409,6 +418,7 @@ footer{text-align:center;padding:40px 24px;border-top:1px solid var(--border);co
 </div>
 
 <div class="section" style="text-align:center;padding-bottom:100px">
+  ${denisPhotoUrl ? `<img src="${denisPhotoUrl}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);margin-bottom:20px;box-shadow:0 0 24px rgba(212,175,55,0.3)" onerror="this.style.display='none'" alt="דניס פול" data-aos="zoom-in">` : ''}
   <h2 class="sec-title" data-aos="fade-up">מוכן/ה להתחיל?<br><span class="teal-text">שריין שיחה עכשיו.</span></h2>
   <div style="margin-top:32px" data-aos="zoom-in" data-aos-delay="100">
     <a href="${calendarLink}" class="cta-btn" target="_blank">📅 שריין שיחה עם דניס ←</a>
