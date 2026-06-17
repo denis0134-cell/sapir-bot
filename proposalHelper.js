@@ -1,5 +1,5 @@
 const { getLead, upsertLead, addMessage, getConversation } = require('./leads');
-const { extractLeadInfo } = require('./claude');
+const { extractLeadInfo, generateProposalHeadline } = require('./claude');
 const { deployProposal } = require('./netlify');
 const { generateProposalHTML } = require('./proposal');
 const { sendMessage } = require('./whatsapp');
@@ -52,7 +52,16 @@ async function generateAndSendProposal(phone, program, price) {
     socialUrl,
   };
 
-  const html = generateProposalHTML(data);
+  // Generate AI personalized headline
+  let headlineData = {};
+  try {
+    headlineData = await generateProposalHeadline(data);
+    console.log('[Proposal] Headline generated:', headlineData.headline?.substring(0, 50));
+  } catch (err) {
+    console.error('[Proposal] Headline error:', err.message);
+  }
+
+  const html = generateProposalHTML({ ...data, ...headlineData });
   const url = await deployProposal(html, clientName);
 
   const msg = `היי ${clientName} 🌟\n\nהכנתי לך הצעה מותאמת אישית — כנס/י לראות:\n\n${url}\n\nשאלות? אני כאן 🙏`;
