@@ -179,8 +179,6 @@ async function handleDenisAdmin(denisPhone, text) {
   const lastPhone = denisData.lastDiscussedPhone;
   const namedLeads = getNamedLeads();
 
-  await sendMessage(denisPhone, '⏳...');
-
   const intent = await detectAdminIntent(text, lastPhone, namedLeads);
   console.log('[Admin] Intent detected:', JSON.stringify(intent));
 
