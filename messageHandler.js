@@ -144,6 +144,14 @@ async function handleLeadMessage(phone, text) {
   if (lead.status === 'new') upsertLead(phone, { status: 'in_conversation' });
 }
 
+
+// Safe price formatter — prevents phone numbers being used as price
+function formatPrice(raw) {
+  const num = parseInt(String(raw || '').replace(/[^0-9]/g, ''));
+  if (isNaN(num) || num <= 0 || num > 99999) return '24,900';
+  return num.toLocaleString('he-IL');
+}
+
 async function generateAndSendProposal(phone, program, price) {
   const lead = getLead(phone) || {};
   let extracted = {};
@@ -160,7 +168,7 @@ async function generateAndSendProposal(phone, program, price) {
     goal: lead.goal || extracted.goal || '',
     painPoints: lead.painPoints?.length ? lead.painPoints : (extracted.painPoints || []),
     program: program === 'ABM+LDB' ? 'BOTH' : program,
-    price: parseInt(price).toLocaleString('he-IL'),
+    price: formatPrice(price),
     calendarLink: process.env.CALENDAR_LINK
   };
 
