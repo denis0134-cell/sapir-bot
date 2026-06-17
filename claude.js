@@ -130,4 +130,86 @@ async function summarizeClient(rawText) {
   }
 }
 
-module.exports = { generateResponse, extractLeadInfo, summarizeClient };
+
+
+async function summarizeFromHistory(lead) {
+  const systemPrompt = `אתה עוזר CRM של דניס ממכללת ספיר זיסמן.
+קיבלת נתונים שמורים על ליד מהמערכת.
+סכם הכל בצורה קצרה וקולעת לווצאפ.
+
+המבנה:
+📋 *${lead.name || 'לקוח'}* | ${lead.phone || ''}
+━━━━━━━━━━━━━━
+
+💼 *תחום:* [מקצוע/עסק]
+📊 *סטטוס:* [מה הסטטוס הנוכחי]
+📅 *עדכון אחרון:* [תאריך בעברית]
+
+🔴 *כאבים שעלו בשיחה:*
+• [כאב 1]
+• [כאב 2]
+
+🎯 *מה הוא רצה:*
+• [מטרה]
+
+🚧 *למה לא סגר:*
+[ניתוח קצר מהשיחה — מה עצר אותו]
+
+😰 *החשש/הפחד שלו:*
+[מה הוא הביע כחשש]
+
+${lead.proposalUrl ? `🔗 *הצעה שנשלחה:* ${lead.proposalUrl}` : ''}
+${lead.followupCount > 0 ? `📨 *פולואפים שנשלחו:* ${lead.followupCount}/6` : ''}
+
+💡 *המלצה לפנייה הבאה:*
+[טיפ קצר איך לחזור אליו]`;
+
+  const conversationText = (lead.conversation || [])
+    .slice(-20)
+    .map(m => `${m.role === 'user' ? 'ליד' : 'בוט'}: ${m.content}`)
+    .join('\n');
+
+  const dataText = `
+שם: ${lead.name || 'לא ידוע'}
+טלפון: ${lead.phone || ''}
+מקצוע: ${lead.profession || 'לא ידוע'}
+עסק: ${lead.business || ''}
+הכנסה נוכחית: ${lead.currentRevenue || 'לא ידוע'}
+מטרה: ${lead.goal || 'לא ידוע'}
+כאבים: ${JSON.stringify(lead.painPoints || [])}
+סטטוס: ${lead.status || 'לא ידוע'}
+הצעה שנשלחה: ${lead.proposalUrl || 'לא'}
+מסלול: ${lead.proposalProgram || 'לא'}
+מחיר: ${lead.proposalPrice || 'לא'}
+פולואפים: ${lead.followupCount || 0}/6
+עדכון אחרון: ${lead.updatedAt || lead.createdAt || 'לא ידוע'}
+
+שיחה (20 הודעות אחרונות):
+${conversationText || 'אין שיחה שמורה'}
+`.trim();
+
+  try {
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: dataText }]
+      },
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data.content[0].text.trim();
+  } catch (err) {
+    console.error('[Claude] summarizeFromHistory error:', err.message);
+    return '❌ שגיאה בסיכום היסטוריה.';
+  }
+}
+
+module.exports = { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory };
