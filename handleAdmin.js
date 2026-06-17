@@ -132,9 +132,16 @@ async function handleDenisAdmin(denisPhone, text) {
     }
   }
 
-  // OTHER: show help
+  // FALLBACK: if message is long — always summarize it
+  if (text.length > 60) {
+    const summary = await summarizeClient(text);
+    await sendMessage(denisPhone, summary);
+    return;
+  }
+
+  // SHORT unknown message — show help
   await sendMessage(denisPhone,
-    `📖 פקודות:\n\nהצעה | [מספר] | [מסלול] | [מחיר]\nסכם | [פרטי לקוח]\n[שם לקוח] — חיפוש היסטוריה\nסיכום | [מספר]`
+    '📖 פקודות:\n\nהצעה | [מספר] | [מסלול] | [מחיר]\nסכם | [פרטי לקוח]\n[שם לקוח] — חיפוש היסטוריה'
   );
 }
 
