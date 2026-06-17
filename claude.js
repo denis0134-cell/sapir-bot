@@ -1,23 +1,21 @@
 const axios = require('axios');
 const systemPromptTemplate = require('./systemPrompt');
 
-function getSystemPrompt(isOwner) {
-  let p = systemPromptTemplate.replace(
+function getSystemPrompt() {
+  return systemPromptTemplate.replace(
     'CALENDAR_LINK_PLACEHOLDER',
     process.env.CALENDAR_LINK || ''
   );
-  if (isOwner) { p += " הפונה הנוכחי הוא דניס, הבעלים שלך. בפנייה הראשונה אליו פתחי: היי דניס, אני אלונה העוזרת האישית שלך."; } else { p += " הפונה הנוכחי הוא לקוח. בפנייה הראשונה אליו פתחי: היי, אני אלונה העוזרת האישית של דניס."; }
-  return p;
 }
 
-async function generateResponse(conversationHistory, isOwner = false) {
+async function generateResponse(conversationHistory) {
   try {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-                model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
-        system: getSystemPrompt(isOwner),
+        system: getSystemPrompt(),
         messages: conversationHistory
       },
       {
@@ -55,7 +53,7 @@ async function extractLeadInfo(conversationHistory) {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
-                model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-6',
         max_tokens: 500,
         messages: [...conversationHistory, { role: 'user', content: prompt }]
       },
@@ -76,4 +74,57 @@ async function extractLeadInfo(conversationHistory) {
   }
 }
 
-module.exports = { generateResponse, extractLeadInfo };
+
+async function summarizeClient(rawText) {
+  const systemPrompt = `אתה עוזר של דניס — איש מכירות במכללת ספיר זיסמן.
+דניס ישלח לך פרטים גולמיים על לקוח פוטנציאלי.
+המשימה: לסכם בצורה קצרה, ברורה ומסודרת בעברית לווצאפ.
+
+המבנה (השתמש ב-*bold* של ווצאפ):
+📋 *סיכום לקוח*
+━━━━━━━━━━━━━━
+
+👤 *שם:* [שם]
+💼 *תחום:* [מקצוע/עסק]
+📊 *מצב נוכחי:* [משפט קצר]
+
+🔴 *כאבים עיקריים:*
+• [כאב 1]
+• [כאב 2]
+
+🎯 *מטרות:*
+• [מטרה 1]
+• [מטרה 2]
+
+✅ *מסלול מומלץ:* [ABM / LDB / ABM+LDB]
+💰 *מחיר מוצע:* [מחיר] ₪
+
+📝 *הערות:* [משפט חשוב לפני הצעה]
+
+חוקים: קצר ולעניין — עד 15 שורות. רק מה שידוע. AI/אוטומציה→ABM | עסק/ליווי→LDB | שניהם→ABM+LDB`;
+
+  try {
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 800,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: rawText }]
+      },
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response.data.content[0].text.trim();
+  } catch (err) {
+    console.error('[Claude] summarizeClient error:', err.message);
+    return '❌ שגיאה בסיכום. נסה שוב.';
+  }
+}
+
+module.exports = { generateResponse, extractLeadInfo, summarizeClient };
