@@ -12,7 +12,7 @@ async function handleIncomingMessage(message) {
   console.log(`[Handler] ${phone}: "${text}"`);
 
   if (phone === process.env.DENIS_PHONE) {
-    await handleDenisCommand(phone, text);
+    await handleDenisAdmin(phone, text);
     return;
   }
 
