@@ -1,6 +1,6 @@
 const { sendMessage, notifyDenis } = require('./whatsapp');
-const { generateResponse, extractLeadInfo, summarizeClient } = require('./claude');
-const { getLead, upsertLead, addMessage, getConversation } = require('./leads');
+const { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory } = require('./claude');
+const { getLead, upsertLead, addMessage, getConversation, findLeadsByName, getNamedLeads } = require('./leads');
 const { deployProposal } = require('./netlify');
 const { generateProposalHTML } = require('./proposal');
 
@@ -101,6 +101,39 @@ async function handleDenisCommand(denisPhone, text) {
 
     await sendMessage(denisPhone, '⏳ מסכם...');
     const summary = await summarizeClient(rawText);
+    await sendMessage(denisPhone, summary);
+    return;
+  }
+
+  // ── Client lookup by name: Denis types a client name to get their history ──
+  const isLookupByName = (
+    text.length < 40 &&
+    !text.includes('|') &&
+    !isSummaryRequest &&
+    (text.startsWith('מה עם') || text.startsWith('סיכום') ||
+     text.startsWith('תן לי') || text.startsWith('מי') ||
+     // Check if text matches a saved lead name
+     findLeadsByName(text.replace(/^(מה עם|סיכום|תן לי|מי)\s*/,'')).length > 0)
+  );
+
+  if (isLookupByName) {
+    const query = text.replace(/^(מה עם|סיכום על|סיכום|תן לי|מי)\s*/,'').trim();
+    const matches = findLeadsByName(query);
+    
+    if (matches.length === 0) {
+      await sendMessage(denisPhone, '❌ לא מצאתי לקוח בשם "' + query + '" במערכת.');
+      return;
+    }
+    
+    if (matches.length > 1) {
+      const list = matches.map(l => '• ' + l.name + ' (' + l.phone + ')').join('\n');
+      await sendMessage(denisPhone, 'נמצאו ' + matches.length + ' לקוחות:\n' + list + '\n\nשלח את המספר הספציפי לסיכום.');
+      return;
+    }
+    
+    const lead = matches[0];
+    await sendMessage(denisPhone, `⏳ מושך סיכום ל-${lead.name}...`);
+    const summary = await summarizeFromHistory(lead);
     await sendMessage(denisPhone, summary);
     return;
   }
