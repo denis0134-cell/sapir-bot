@@ -7,6 +7,57 @@ const { parseNaturalCommand } = require('./commandParser');
 
 async function handleDenisAdmin(denisPhone, text) {
 
+  // ── Form command: deploy client form and return URL ──
+  if (/^(טופס|תשלח טופס|שלח טופס|form)/i.test(text)) {
+    await sendMessage(denisPhone, '⏳ מכין טופס...');
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const axios = require('axios');
+      const crypto = require('crypto');
+      
+      const formPath = path.join(__dirname, 'client-form.html');
+      const htmlBytes = fs.readFileSync(formPath);
+      const sha1 = crypto.createHash('sha1').update(htmlBytes).digest('hex');
+      const token = process.env.NETLIFY_TOKEN;
+      const siteName = 'sapir-client-form';
+      
+      // Check if site exists, create if not
+      let siteId;
+      try {
+        const existing = await axios.get('https://api.netlify.com/api/v1/sites?filter=owner&name=' + siteName, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const found = existing.data.find(s => s.name === siteName);
+        siteId = found ? found.id : null;
+      } catch {}
+      
+      if (!siteId) {
+        const siteRes = await axios.post('https://api.netlify.com/api/v1/sites', { name: siteName }, {
+          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+        });
+        siteId = siteRes.data.id;
+      }
+      
+      const deployRes = await axios.post('https://api.netlify.com/api/v1/sites/' + siteId + '/deploys',
+        { files: { '/index.html': sha1 } },
+        { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } }
+      );
+      
+      await axios.put('https://api.netlify.com/api/v1/deploys/' + deployRes.data.id + '/files/index.html',
+        htmlBytes,
+        { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' }, maxBodyLength: Infinity }
+      );
+      
+      const formUrl = 'https://' + siteName + '.netlify.app';
+      await sendMessage(denisPhone, '📋 הנה הטופס:\n\n' + formUrl + '\n\nמלא ← לחץ "שלח לבוט" ← הבוט יבנה דף נחיתה ⚡');
+    } catch (err) {
+      console.error('[Form] Deploy error:', err.message);
+      await sendMessage(denisPhone, '❌ שגיאה בפרסום הטופס: ' + err.message);
+    }
+    return;
+  }
+
   // ── Formatted command: הצעה | number | program | price ──
   const parts = text.split('|').map(p => p.trim());
   if (parts[0] === 'הצעה' && parts.length >= 4) {
