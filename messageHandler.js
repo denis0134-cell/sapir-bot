@@ -1,5 +1,5 @@
 const { sendMessage, notifyDenis } = require('./whatsapp');
-const { generateResponse, extractLeadInfo } = require('./claude');
+const { generateResponse, extractLeadInfo, summarizeClient } = require('./claude');
 const { getLead, upsertLead, addMessage, getConversation } = require('./leads');
 const { deployProposal } = require('./netlify');
 const { generateProposalHTML } = require('./proposal');
@@ -65,6 +65,16 @@ async function handleDenisCommand(denisPhone, text) {
     await sendMessage(denisPhone,
       `📊 ${parts[1]}:\nשם: ${lead.name || '-'}\nמקצוע: ${lead.profession || '-'}\nסטטוס: ${lead.status}\nפולואפים: ${lead.followupCount}/6\nהצעה: ${lead.proposalUrl || 'לא נשלחה'}`
     );
+    return;
+  }
+
+  // ── Client summary command: סכם | [raw text about client] ──
+  if (parts[0] === 'סכם' && parts.length >= 2) {
+    const rawText = parts.slice(1).join('|').trim();
+    if (!rawText) { await sendMessage(denisPhone, '📝 שלח: סכם | [פרטים על הלקוח]'); return; }
+    await sendMessage(denisPhone, '⏳ מסכם...');
+    const summary = await summarizeClient(rawText);
+    await sendMessage(denisPhone, summary);
     return;
   }
 
