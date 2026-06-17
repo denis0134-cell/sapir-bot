@@ -212,4 +212,62 @@ ${conversationText || 'אין שיחה שמורה'}
   }
 }
 
-module.exports = { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory };
+
+
+async function generateProposalHeadline(clientData) {
+  const { clientName, clientProfession, clientBusiness, currentRevenue, targetRevenue, goal, painPoints } = clientData;
+  const prompt = `אתה קופירייטר מצוין שכותב כותרות לדפי נחיתה עבור מכללת ספיר זיסמן.
+
+פרטי הלקוח:
+שם: ${clientName}
+מקצוע/עסק: ${clientProfession || clientBusiness || ''}
+הכנסה נוכחית: ${currentRevenue || 'לא ידוע'}
+מטרה: ${goal || 'לצמוח ולהגדיל הכנסה'}
+כאבים: ${Array.isArray(painPoints) ? painPoints.join(', ') : painPoints || ''}
+
+כתוב כותרת רגשית, אישית ועוצמתית ל-${clientName} בעברית.
+הכותרת צריכה:
+- להתחיל עם שם הלקוח
+- להזכיר את המקצוע/עסק שלו באופן ספציפי
+- להדגיש את הפוטנציאל הקיים שלו
+- לסיים עם "הגיע הזמן שה-AI יהיה [משהו] שעובד בשבילך גם כשאתה לא"
+- להיות 2-3 שורות, לא יותר מ-20 מילים סה"כ
+
+דוגמה: "שרית, יש לך שלושה כובעים ושליחות אמיתית לשנות חיים. הגיע הזמן שה-AI יהיה הכובע הרביעי שעובד בשבילך גם כשאת לא."
+
+החזר JSON בלבד:
+{
+  "headline": "הכותרת הראשית",
+  "subheadline": "פסקה קצרה של 2-3 משפטים המסבירה את המצב הנוכחי ומה צריך לקרות",
+  "highlightPhrase": "ביטוי 3-5 מילים שיודגש בצבע אחר (הרגע הרגשי)"
+}`;
+
+  try {
+    const response = await axios.post(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        messages: [{ role: 'user', content: prompt }]
+      },
+      {
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    const raw = response.data.content[0].text.trim().replace(/```json|```/g, '').trim();
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('[Claude] generateProposalHeadline error:', err.message);
+    return {
+      headline: `${clientName}, הגיע הזמן שה-AI יעבוד בשבילך גם כשאתה לא.`,
+      subheadline: `${clientProfession || 'הידע והניסיון שלך'} — זה הבסיס. עכשיו הגיע הזמן לבנות מנגנון שמביא לקוחות, מוכר ומנהל בלי שתצטרך להיות שם כל הזמן.`,
+      highlightPhrase: 'הגיע הזמן שה-AI'
+    };
+  }
+}
+
+module.exports = { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory, generateProposalHeadline };
