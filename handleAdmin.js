@@ -8,7 +8,7 @@ const { parseNaturalCommand } = require('./commandParser');
 async function handleDenisAdmin(denisPhone, text) {
 
   // ── Denis photo update: תמונה | [URL or Instagram URL] ──
-  if (text.startsWith('תמונה |') || text.startsWith('תמונה שלי |') || text.startsWith('עדכן תמונה |')) {
+  if (/תמונה[^|]*\|/.test(text) || text.startsWith('תמונה |') || text.startsWith('עדכן תמונה')) {
     const rawUrl = text.split('|').slice(1).join('|').trim();
     if (!rawUrl.startsWith('http')) {
       await sendMessage(denisPhone, '❌ שלח URL. דוגמה: תמונה | https://instagram.com/username');
@@ -37,7 +37,7 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // ── Form command: deploy client form and return URL ──
-  if (/^(טופס|תשלח טופס|שלח טופס|form)/i.test(text)) {
+  if (/טופס|שלח.*טופס|form/i.test(text)) {
     await sendMessage(denisPhone, '⏳ מכין טופס...');
     try {
       const fs = require('fs');
@@ -260,7 +260,7 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // SHORT message with proposal keywords — ask for client details
-  const proposalKeywords = ['הצעת מחיר', 'הצעה', 'לבנות הצעה', 'proposal'];
+  const proposalKeywords = ['הצעת מחיר', 'הצעה', 'לבנות הצעה', 'proposal', 'לשלוח הצעה', 'תבני הצעה', 'תכיני הצעה'];
   if (proposalKeywords.some(k => text.includes(k))) {
     await sendMessage(denisPhone,
       'כדי לבנות הצעה, שלח פרטי הלקוח בפורמט חופשי, לדוגמה:\n\n' +
@@ -277,7 +277,7 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // SHORT casual messages — friendly reply
-  const greetings = ['מה שלומך', 'מה שלומכם', 'שלום', 'היי', 'הי', 'בוקר טוב', 'ערב טוב', 'לילה טוב', 'מה נשמע', 'מה קורה', 'תודה', 'תודה רבה', 'כל הכבוד', 'יפה', 'מעולה', 'בסדר'];
+  const greetings = ['מה שלומך', 'מה שלומכם', 'שלום', 'היי', 'הי', 'בוקר', 'ערב טוב', 'לילה טוב', 'מה נשמע', 'מה קורה', 'תודה', 'כל הכבוד', 'יפה', 'מעולה', 'בסדר', 'אלונה', 'עוזרת'];
   if (greetings.some(g => text.includes(g))) {
     const hour = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false });
     const h = parseInt(hour);
