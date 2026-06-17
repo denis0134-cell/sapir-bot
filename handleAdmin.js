@@ -174,6 +174,18 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // ── Alona self-recognition — responds when called by name ──
+  if (/^אלונה[!?.,\s]*$|^היי אלונה|^שלום אלונה|^אלונה,/i.test(text)) {
+    const replies = [
+      'כן דניס, אני כאן! 😄\nאלונה לשירותך — מה עושים?',
+      'קוראת לי? 👋\nאלונה כאן, מוכנה לפעולה!\nבמה אוכל לעזור?',
+      'הנה אני! 🙋‍♀️\nאלונה נוכחת ומוכנה.\nמה צריך?',
+      'אני אלונה, העוזרת שלך 💪\nתמיד כאן. מה יש?'
+    ];
+    await sendMessage(denisPhone, replies[Math.floor(Math.random() * replies.length)]);
+    return;
+  }
+
   // ── All other messages: use Claude to detect intent ──
   const denisData = getLead(denisPhone) || {};
   const lastPhone = denisData.lastDiscussedPhone;
