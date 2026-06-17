@@ -115,6 +115,48 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // ── Landing Page command: דף נחיתה | phone | businessName | ... ──
+  if (parts[0] === 'דף נחיתה' && parts.length >= 3) {
+    await sendMessage(denisPhone, '⏳ בונה דף נחיתה... (30-60 שניות)');
+    try {
+      const { generateLandingPage } = require('./landingPageBuilder');
+      const { deployProposal } = require('./netlify');
+
+      const phone = parts[1];
+      const businessName = parts[2];
+
+      // Parse all optional params
+      const extras = {};
+      parts.slice(3).forEach(p => {
+        const [k, ...v] = p.split('=');
+        if (k && v.length) extras[k.trim()] = v.join('=').trim();
+      });
+
+      const businessData = {
+        businessName,
+        ownerName: extras.owner || '',
+        botDescription: extras.desc || 'בוט WhatsApp חכם לניהול לקוחות',
+        targetAudience: extras.audience || 'בעלי עסקים קטנים ובינוניים',
+        features: extras.features ? extras.features.split(',').map(f=>f.trim()) : [],
+        phone: phone,
+        price: extras.price || '',
+        calendarLink: extras.calendar || process.env.CALENDAR_LINK,
+        results: extras.results ? extras.results.split(',').map(r=>r.trim()) : [],
+        painPoints: extras.pains ? extras.pains.split(',').map(p=>p.trim()) : [],
+        chatMockup: { userMsg: extras.msgUser || '', botMsg: extras.msgBot || '' }
+      };
+
+      const html = await generateLandingPage(businessData);
+      const url = await deployProposal(html, businessName);
+
+      await sendMessage(denisPhone, '✅ דף נחיתה מוכן!\n\n' + url + '\n\nשלח ללקוח 🚀');
+    } catch (err) {
+      console.error('[LandingPage] Error:', err.message);
+      await sendMessage(denisPhone, '❌ שגיאה: ' + err.message);
+    }
+    return;
+  }
+
   // ── All other messages: use Claude to detect intent ──
   const denisData = getLead(denisPhone) || {};
   const lastPhone = denisData.lastDiscussedPhone;
