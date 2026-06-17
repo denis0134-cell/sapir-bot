@@ -85,4 +85,21 @@ function markNotRelevant(phone) {
   return upsertLead(phone, { status: 'not_relevant' });
 }
 
-module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, markNotRelevant };
+module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, markNotRelevant, findLeadsByName, getNamedLeads };
+
+// Find leads by partial name match
+function findLeadsByName(query) {
+  const db = readDB();
+  const q = query.toLowerCase().trim();
+  return Object.values(db).filter(lead => {
+    if (!lead.name) return false;
+    return lead.name.toLowerCase().includes(q);
+  });
+}
+
+// Get all leads that have a name
+function getNamedLeads() {
+  const db = readDB();
+  return Object.values(db).filter(l => l.name);
+}
+
