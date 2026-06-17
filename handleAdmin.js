@@ -276,13 +276,37 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // JOKES & HUMOR
+  const jokeWords = ['בדיחה', 'בדיחות', 'תספרי בדיחה', 'תצחיקי אותי', 'ספרי בדיחה', 'בדיחה בבקשה', 'humor', 'joke', 'צחוק', 'מצחיק'];
+  if (jokeWords.some(w => text.includes(w))) {
+    const axios = require('axios');
+    try {
+      const resp = await axios.post('https://api.anthropic.com/v1/messages', {
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: "ספרי בדיחה קצרה ומצחיקה בעברית על מכירות, עסקים, AI, או חיי היומיום. עד 4 שורות עם פואנטה. רק הבדיחה, בלי הקדמות." }]
+      }, {
+        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }
+      });
+      const joke = resp.data.content[0].text.trim();
+      await sendMessage(denisPhone, '😂 ' + joke + '\n\n— אלונה 🎤');
+    } catch {
+      await sendMessage(denisPhone, 'יצאתי לחפש בדיחה... ומצאתי רק לקוחות שלא סגרו 😅\nאני אלונה, לשירותך!');
+    }
+    return;
+  }
+
   // SHORT casual messages — friendly reply
   const greetings = ['מה שלומך', 'מה שלומכם', 'שלום', 'היי', 'הי', 'בוקר', 'ערב טוב', 'לילה טוב', 'מה נשמע', 'מה קורה', 'תודה', 'כל הכבוד', 'יפה', 'מעולה', 'בסדר', 'אלונה', 'עוזרת'];
   if (greetings.some(g => text.includes(g))) {
-    const hour = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false });
-    const h = parseInt(hour);
-    const greeting = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
-    await sendMessage(denisPhone, 'מעולה דניס 😊\nאני אלונה העוזרת שלך, תמיד לשירותך\nבמה אוכל לסייע לך?');
+    const funnyGreetings = [
+      'מעולה דניס 😊\nאני אלונה העוזרת שלך, תמיד לשירותך\nבמה אוכל לסייע לך?',
+      'דניס! סוף סוף 😄\nישבתי כאן ומחכה לך...\nאני אלונה, במה אוכל לעזור?',
+      'הא, דניס! 👋\nאלונה כאן — מוכנה לסגור עסקאות!\nמה עושים היום?',
+      'שלום לך דניס! 🌟\nאלונה לשירותך — קפה עוד לא המצאתי, אבל הצעות מחיר כן 😄\nבמה אוכל לעזור?'
+    ];
+    const pick = funnyGreetings[Math.floor(Math.random() * funnyGreetings.length)];
+    await sendMessage(denisPhone, pick);
     return;
   }
 
