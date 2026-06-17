@@ -289,8 +289,10 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // JOKES & HUMOR
-  const jokeWords = ['בדיחה', 'בדיחות', 'תספרי בדיחה', 'תצחיקי אותי', 'ספרי בדיחה', 'בדיחה בבקשה', 'humor', 'joke', 'צחוק', 'מצחיק'];
-  if (jokeWords.some(w => text.includes(w))) {
+  const jokeWords = ['בדיחה', 'בדיחות', 'תספרי', 'תצחיקי', 'ספרי', 'עוד אחת', 'עוד בדיחה', 'עוד', 'humor', 'joke', 'צחוק', 'מצחיק', 'תצחיקי'];
+  // Only trigger for joke context if 'עוד' alone — check short messages
+  const isJokeRequest = jokeWords.some(w => text.includes(w)) && (text.length < 15 || text.includes('בדיחה') || text.includes('צחוק') || text.includes('תצחיקי'));
+  if (isJokeRequest) {
     const axios = require('axios');
     try {
       const resp = await axios.post('https://api.anthropic.com/v1/messages', {
