@@ -59,7 +59,7 @@ async function handleLeadMessage(phone, text) {
   addMessage(phone, 'user', text);
 
   const conversation = getConversation(phone);
-  const result = await generateResponse(conversation);
+  const result = await generateResponse(conversation, phone === process.env.DENIS_PHONE);
 
   await sendMessage(phone, result.message);
   addMessage(phone, 'assistant', result.message);
