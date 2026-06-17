@@ -105,6 +105,37 @@ async function handleDenisCommand(denisPhone, text) {
     return;
   }
 
+  // ── Update last discussed client (תוסיפי, עדכן, הוסף) ──
+  const isUpdateCmd = /^(תוסיפי|תוסיף|עדכן|עדכני|הוסיפי|הוסף|שמור|שמרי)/i.test(text);
+  if (isUpdateCmd) {
+    const denisData = getLead(denisPhone);
+    const lastPhone = denisData && denisData.lastDiscussedPhone;
+    
+    // Extract phone number from message if present
+    const phoneMatch = text.match(/(?:97[2]|0)([5][0-9]{8})/);
+    const newPhone = phoneMatch ? ('972' + (phoneMatch[0].startsWith('0') ? phoneMatch[0].slice(1) : phoneMatch[0].replace('972',''))) : null;
+    
+    // Extract name if mentioned
+    const nameMatch = text.match(/שם[: ]+([^\d,]+)/);
+    const newName = nameMatch ? nameMatch[1].trim().substring(0, 30) : null;
+    
+    if (lastPhone && (newPhone || newName)) {
+      const updates = {};
+      if (newPhone) updates.phone = newPhone;
+      if (newName) updates.name = newName;
+      upsertLead(lastPhone, updates);
+      const lead = getLead(newPhone || lastPhone);
+      const updateMsg = Object.entries(updates).map(([k,v]) => `${k === 'phone' ? '📱 טלפון' : '👤 שם'}: ${v}`).join(', ');
+      await sendMessage(denisPhone, `✅ עודכן ל-${lead.name || lastPhone}: ${updateMsg}`);
+      return;
+    }
+    
+    if (!lastPhone) {
+      await sendMessage(denisPhone, '❓ לא ברור לאיזה לקוח להוסיף. אמור קודם שם לקוח ואז עדכן.');
+      return;
+    }
+  }
+
   // ── Client lookup by name: Denis types a client name to get their history ──
   const isLookupByName = (
     text.length < 40 &&
@@ -132,6 +163,8 @@ async function handleDenisCommand(denisPhone, text) {
     }
     
     const lead = matches[0];
+    // Remember last discussed client
+    upsertLead(denisPhone, { lastDiscussedPhone: lead.phone });
     await sendMessage(denisPhone, `⏳ מושך סיכום ל-${lead.name}...`);
     const summary = await summarizeFromHistory(lead);
     await sendMessage(denisPhone, summary);
