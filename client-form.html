@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>טופס לקוח | דניס</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--gold:#C9A84C;--bg:#0a0a0a;--card:#111;--card2:#181818;--text:#fff;--muted:#888;--border:rgba(201,168,76,0.25);--green:#25D366}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:100px}
+.header{background:linear-gradient(135deg,rgba(201,168,76,0.12),transparent);border-bottom:1px solid var(--border);padding:20px 16px;text-align:center;position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.header h1{font-size:20px;font-weight:800;color:var(--gold)}
+.header p{font-size:12px;color:var(--muted);margin-top:3px}
+.progress{height:3px;background:rgba(201,168,76,0.15);position:relative;margin-top:12px;border-radius:99px}
+.progress-bar{height:100%;background:var(--gold);border-radius:99px;transition:width .4s ease;width:0%}
+.steps-wrap{overflow:hidden}
+.step{display:none;padding:16px;animation:fadeIn .3s ease}
+.step.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.step-label{font-size:11px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.step-title{font-size:22px;font-weight:800;margin-bottom:4px}
+.step-sub{font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--gold);margin-bottom:6px;letter-spacing:.5px}
+.field input,.field textarea,.field select{width:100%;background:var(--card2);border:1px solid var(--border);color:var(--text);font-family:'Heebo',sans-serif;font-size:16px;padding:14px 16px;border-radius:14px;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--gold)}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted)}
+.field textarea{resize:none;min-height:80px;line-height:1.5}
+select option{background:#111}
+.pain-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.pain-btn{background:var(--card2);border:1px solid var(--border);color:var(--muted);padding:10px 12px;border-radius:12px;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;text-align:right;line-height:1.4}
+.pain-btn.sel{background:rgba(201,168,76,0.12);border-color:var(--gold);color:var(--text)}
+.prog-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.prog-btn{background:var(--card2);border:1px solid var(--border);color:var(--muted);padding:12px 6px;border-radius:12px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;text-align:center;line-height:1.5}
+.prog-btn.sel{background:rgba(201,168,76,0.12);border-color:var(--gold);color:var(--gold)}
+.price-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.price-btn{background:var(--card2);border:1px solid var(--border);color:var(--muted);padding:10px 4px;border-radius:12px;font-family:'Heebo',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;text-align:center;line-height:1.5}
+.price-btn.sel{background:rgba(201,168,76,0.12);border-color:var(--gold);color:var(--gold)}
+.next-btn{width:100%;background:var(--gold);color:#000;font-family:'Heebo',sans-serif;font-size:17px;font-weight:800;padding:17px;border-radius:14px;border:none;cursor:pointer;margin-top:8px;transition:transform .15s,opacity .15s}
+.next-btn:active{transform:scale(0.98)}
+.next-btn.disabled{opacity:.4;pointer-events:none}
+.back-btn{width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'Heebo',sans-serif;font-size:15px;padding:13px;border-radius:14px;cursor:pointer;margin-top:8px}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
+.summary-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)}
+.summary-row:last-child{border-bottom:none}
+.summary-key{font-size:12px;color:var(--muted);flex-shrink:0;margin-left:12px}
+.summary-val{font-size:13px;font-weight:600;text-align:right}
+.wa-btn{width:100%;background:var(--green);color:#fff;font-family:'Heebo',sans-serif;font-size:18px;font-weight:800;padding:18px;border-radius:14px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px}
+.wa-btn svg{flex-shrink:0}
+.opt-label{font-size:11px;color:var(--muted);font-weight:400;margin-right:4px}
+.tag{display:inline-block;background:rgba(201,168,76,0.1);border:1px solid var(--border);color:var(--gold);font-size:11px;padding:3px 10px;border-radius:20px;margin:2px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 טופס לקוח</h1>
+  <p>מלא ← הבוט יבנה דף נחיתה מותאם אישית</p>
+  <div class="progress"><div class="progress-bar" id="pb"></div></div>
+</div>
+
+<div class="steps-wrap">
+
+  <!-- STEP 1: Basic info -->
+  <div class="step active" id="s1">
+    <div class="step-label">שלב 1 מתוך 5</div>
+    <div class="step-title">פרטי הלקוח</div>
+    <div class="step-sub">מי הלקוח שאיתו שוחחת?</div>
+    <div class="field"><label>שם מלא</label><input id="name" type="text" placeholder="שם פרטי ומשפחה" autocomplete="off"></div>
+    <div class="field"><label>טלפון</label><input id="phone" type="tel" placeholder="05X-XXXXXXX" autocomplete="off"></div>
+    <div class="field"><label>מקצוע / עסק</label><input id="profession" type="text" placeholder="מאמן עסקי, מספרה, יועצת..."></div>
+    <div class="field"><label>הכנסה חודשית נוכחית <span class="opt-label">(אופציונלי)</span></label><input id="revenue" type="text" placeholder="15K, 30,000 ₪..."></div>
+    <button class="next-btn" onclick="goTo(2)">המשך ←</button>
+  </div>
+
+  <!-- STEP 2: Pain points -->
+  <div class="step" id="s2">
+    <div class="step-label">שלב 2 מתוך 5</div>
+    <div class="step-title">כאבים עיקריים</div>
+    <div class="step-sub">מה עלה בשיחה? בחר הכל שמתאים</div>
+    <div class="pain-grid" id="painGrid">
+      <button class="pain-btn" onclick="togglePain(this)">⏸️ עוצר = עסק עוצר</button>
+      <button class="pain-btn" onclick="togglePain(this)">🔒 תקרת הכנסה</button>
+      <button class="pain-btn" onclick="togglePain(this)">⚙️ וואן מן שואו</button>
+      <button class="pain-btn" onclick="togglePain(this)">📱 אין נוכחות דיגיטלית</button>
+      <button class="pain-btn" onclick="togglePain(this)">😰 AI נשמע רחוק</button>
+      <button class="pain-btn" onclick="togglePain(this)">⏱️ אין זמן לשיווק</button>
+      <button class="pain-btn" onclick="togglePain(this)">💸 הוצאות גבוהות</button>
+      <button class="pain-btn" onclick="togglePain(this)">🧠 ידע לא ממונף</button>
+    </div>
+    <div class="field"><label>כאב נוסף <span class="opt-label">(חופשי)</span></label><textarea id="painExtra" placeholder="תאר כאב ספציפי שעלה בשיחה..."></textarea></div>
+    <button class="next-btn" onclick="goTo(3)">המשך ←</button>
+    <button class="back-btn" onclick="goTo(1)">← חזרה</button>
+  </div>
+
+  <!-- STEP 3: Goal -->
+  <div class="step" id="s3">
+    <div class="step-label">שלב 3 מתוך 5</div>
+    <div class="step-title">מה הוא רוצה?</div>
+    <div class="step-sub">המטרה שהלקוח הגדיר לעצמו</div>
+    <div class="field"><label>מטרה עיקרית</label><textarea id="goal" placeholder="לדוגמה: להגיע ל-30K בחודש, לצאת מהמשוואה של זמן=כסף, לבנות מוצר דיגיטלי..."></textarea></div>
+    <div class="field"><label>הכנסה יעד <span class="opt-label">(אופציונלי)</span></label><input id="targetRevenue" type="text" placeholder="50K, 100K..."></div>
+    <div class="field"><label>למה לא סגר? <span class="opt-label">(אופציונלי)</span></label><textarea id="objection" placeholder="מה עצר אותו? מה הפחיד אותו?"></textarea></div>
+    <button class="next-btn" onclick="goTo(4)">המשך ←</button>
+    <button class="back-btn" onclick="goTo(2)">← חזרה</button>
+  </div>
+
+  <!-- STEP 4: Program & Price -->
+  <div class="step" id="s4">
+    <div class="step-label">שלב 4 מתוך 5</div>
+    <div class="step-title">מסלול ומחיר</div>
+    <div class="step-sub">מה מומלץ עבורו?</div>
+    <div class="field">
+      <label>מסלול מומלץ</label>
+      <div class="prog-row">
+        <button class="prog-btn" data-v="ABM" onclick="selProg(this)">ABM<br><small style="font-size:10px;font-weight:400">AI בלבד</small></button>
+        <button class="prog-btn" data-v="LDB" onclick="selProg(this)">LDB<br><small style="font-size:10px;font-weight:400">ליווי עסקי</small></button>
+        <button class="prog-btn sel" data-v="ABM+LDB" onclick="selProg(this)">שניהם<br><small style="font-size:10px;font-weight:400">הכל ביחד</small></button>
+      </div>
+    </div>
+    <div class="field">
+      <label>מחיר</label>
+      <div class="price-row">
+        <button class="price-btn" data-v="13900" onclick="selPrice(this)">₪13,900<br><small>ABM</small></button>
+        <button class="price-btn" data-v="18900" onclick="selPrice(this)">₪18,900<br><small>LDB</small></button>
+        <button class="price-btn sel" data-v="24900" onclick="selPrice(this)">₪24,900<br><small>שניהם</small></button>
+      </div>
+      <input type="number" id="customPrice" placeholder="מחיר מותאם..." oninput="custPrice(this)" style="margin-top:0">
+    </div>
+    <button class="next-btn" onclick="goTo(5)">סיכום ←</button>
+    <button class="back-btn" onclick="goTo(3)">← חזרה</button>
+  </div>
+
+  <!-- STEP 5: Summary & Send -->
+  <div class="step" id="s5">
+    <div class="step-label">שלב 5 מתוך 5</div>
+    <div class="step-title">הכל מוכן!</div>
+    <div class="step-sub">בדוק ושלח לבוט לבניית דף הנחיתה</div>
+    <div class="summary-card" id="summaryCard"></div>
+    <button class="wa-btn" onclick="sendToBot()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      שלח לבוט לבניית דף הנחיתה
+    </button>
+    <button class="back-btn" onclick="goTo(4)">← ערוך</button>
+  </div>
+
+</div>
+
+<script>
+let prog = 'ABM+LDB', price = '24900';
+const TOTAL = 5;
+
+function goTo(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('s' + n).classList.add('active');
+  document.getElementById('pb').style.width = ((n / TOTAL) * 100) + '%';
+  if (n === 5) buildSummary();
+  window.scrollTo(0, 0);
+}
+
+function togglePain(btn) { btn.classList.toggle('sel'); }
+function selProg(btn) { document.querySelectorAll('.prog-btn').forEach(b => b.classList.remove('sel')); btn.classList.add('sel'); prog = btn.dataset.v; }
+function selPrice(btn) { document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('sel')); btn.classList.add('sel'); price = btn.dataset.v; document.getElementById('customPrice').value = ''; }
+function custPrice(i) { if (i.value) { document.querySelectorAll('.price-btn').forEach(b => b.classList.remove('sel')); price = i.value; } }
+
+function normPhone(r) {
+  const d = r.replace(/\D/g, '');
+  if (d.startsWith('972')) return d;
+  if (d.startsWith('0')) return '972' + d.slice(1);
+  return d;
+}
+
+function buildSummary() {
+  const name = document.getElementById('name').value.trim();
+  const phone = normPhone(document.getElementById('phone').value.trim());
+  const profession = document.getElementById('profession').value.trim();
+  const revenue = document.getElementById('revenue').value.trim();
+  const goal = document.getElementById('goal').value.trim();
+  const targetRevenue = document.getElementById('targetRevenue').value.trim();
+  const objection = document.getElementById('objection').value.trim();
+  const pains = [...document.querySelectorAll('.pain-btn.sel')].map(b => b.textContent.trim());
+  const painExtra = document.getElementById('painExtra').value.trim();
+  const finalPrice = document.getElementById('customPrice').value || price;
+
+  const rows = [
+    ['שם', name],
+    ['טלפון', phone],
+    ['מקצוע', profession],
+    ['הכנסה נוכחית', revenue],
+    ['מסלול', prog],
+    ['מחיר', '₪' + parseInt(finalPrice).toLocaleString('he-IL')],
+    ['הכנסה יעד', targetRevenue],
+    ['מטרה', goal],
+    ['למה לא סגר', objection],
+    ['כאבים', [...pains, painExtra].filter(Boolean).join(', ')],
+  ].filter(([,v]) => v);
+
+  document.getElementById('summaryCard').innerHTML = rows.map(([k,v]) =>
+    `<div class="summary-row"><span class="summary-key">${k}</span><span class="summary-val">${v}</span></div>`
+  ).join('');
+}
+
+function sendToBot() {
+  const name = document.getElementById('name').value.trim();
+  const phone = normPhone(document.getElementById('phone').value.trim());
+  const profession = document.getElementById('profession').value.trim();
+  const revenue = document.getElementById('revenue').value.trim();
+  const goal = document.getElementById('goal').value.trim();
+  const targetRevenue = document.getElementById('targetRevenue').value.trim();
+  const objection = document.getElementById('objection').value.trim();
+  const pains = [...document.querySelectorAll('.pain-btn.sel')].map(b => b.textContent.trim());
+  const painExtra = document.getElementById('painExtra').value.trim();
+  const finalPrice = document.getElementById('customPrice').value || price;
+  const allPains = [...pains, painExtra].filter(Boolean).join(', ');
+
+  let cmd = `הצעה | ${phone} | ${prog} | ${finalPrice}`;
+  if (name) cmd += ` | name=${name}`;
+  if (profession) cmd += ` | prof=${profession}`;
+  if (revenue) cmd += ` | rev=${revenue}`;
+  if (targetRevenue) cmd += ` | target=${targetRevenue}`;
+  if (goal) cmd += ` | goal=${goal.substring(0, 60)}`;
+  if (objection) cmd += ` | obj=${objection.substring(0, 40)}`;
+  if (allPains) cmd += ` | pains=${allPains.substring(0, 80)}`;
+
+  const botNumber = '15556676573';
+  window.open('https://wa.me/' + botNumber + '?text=' + encodeURIComponent(cmd), '_blank');
+}
+</script>
+</body>
+</html>
