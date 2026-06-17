@@ -284,7 +284,7 @@ async function handleDenisAdmin(denisPhone, text) {
     const hour = new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hour12: false });
     const h = parseInt(hour);
     const greeting = h >= 5 && h < 12 ? 'בוקר טוב' : h >= 12 && h < 17 ? 'צהריים טובים' : h >= 17 && h < 21 ? 'ערב טוב' : 'לילה טוב';
-    await sendMessage(denisPhone, greeting + ' דניס 💪\nהכל מוכן לעזור. שלח שם לקוח לסיכום, פרטי לקוח להצעה, או "פקודות" לרשימה מלאה.');
+    await sendMessage(denisPhone, 'מעולה דניס 😊\nאני אלונה העוזרת שלך, תמיד לשירותך\nבמה אוכל לסייע לך?');
     return;
   }
 
