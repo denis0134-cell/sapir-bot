@@ -1,21 +1,23 @@
 const axios = require('axios');
 const systemPromptTemplate = require('./systemPrompt');
 
-function getSystemPrompt() {
-  return systemPromptTemplate.replace(
+function getSystemPrompt(isOwner) {
+  let p = systemPromptTemplate.replace(
     'CALENDAR_LINK_PLACEHOLDER',
     process.env.CALENDAR_LINK || ''
   );
+  if (isOwner) { p += " הפונה הנוכחי הוא דניס, הבעלים שלך. בפנייה הראשונה אליו פתחי: היי דניס, אני אלונה העוזרת האישית שלך."; } else { p += " הפונה הנוכחי הוא לקוח. בפנייה הראשונה אליו פתחי: היי, אני אלונה העוזרת האישית של דניס."; }
+  return p;
 }
 
-async function generateResponse(conversationHistory) {
+async function generateResponse(conversationHistory, isOwner = false) {
   try {
     const response = await axios.post(
       'https://api.anthropic.com/v1/messages',
       {
                 model: 'claude-sonnet-4-5',
         max_tokens: 1000,
-        system: getSystemPrompt(),
+        system: getSystemPrompt(isOwner),
         messages: conversationHistory
       },
       {
