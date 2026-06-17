@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>⚡ הגדרת תמונת פרופיל | דניס</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Heebo',sans-serif;background:#0a0a0a;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#111;border:1px solid rgba(201,168,76,0.25);border-radius:24px;padding:32px 24px;max-width:420px;width:100%;text-align:center}
+h1{font-size:22px;font-weight:800;color:#C9A84C;margin-bottom:8px}
+.sub{font-size:14px;color:#888;margin-bottom:28px;line-height:1.5}
+.ig-field{background:#181818;border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:14px 16px;font-family:'Heebo',sans-serif;font-size:15px;color:#fff;width:100%;margin-bottom:16px;outline:none;direction:ltr;text-align:left}
+.ig-field:focus{border-color:#C9A84C}
+.btn{width:100%;padding:16px;border-radius:12px;border:none;font-family:'Heebo',sans-serif;font-size:17px;font-weight:800;cursor:pointer;transition:all .2s}
+.btn-gold{background:#C9A84C;color:#000}
+.btn-gold:active{transform:scale(0.98)}
+.btn-gold:disabled{opacity:.5;cursor:not-allowed}
+.preview{margin:20px 0;display:none}
+.preview img{width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid #C9A84C}
+.preview p{font-size:13px;color:#888;margin-top:8px}
+.status{margin-top:16px;padding:12px 16px;border-radius:10px;font-size:14px;display:none}
+.status.loading{background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.3);color:#C9A84C}
+.status.success{background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.3);color:#25D366}
+.status.error{background:rgba(255,100,100,0.1);border:1px solid rgba(255,100,100,0.3);color:#ff6464}
+.step{font-size:12px;color:#666;margin-bottom:20px}
+.step span{display:inline-block;width:22px;height:22px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);border-radius:50%;line-height:22px;font-size:11px;color:#C9A84C;margin-left:6px}
+.phone-field{background:#181818;border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:14px 16px;font-family:'Heebo',sans-serif;font-size:15px;color:#fff;width:100%;margin-bottom:16px;outline:none}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📸 הגדרת תמונת פרופיל</h1>
+  <p class="sub">עשה פעם אחת — תמונתך תופיע בכל הצעה שתיצור</p>
+
+  <div class="step">
+    <span>1</span> הכנס מספר ווצאפ שלך
+    <span>2</span> הכנס את האינסטגרם שלך
+    <span>3</span> לחץ שמור
+  </div>
+
+  <input class="phone-field" id="phoneField" type="tel" placeholder="972509698121" value="972509698121" dir="ltr">
+  <input class="ig-field" id="igField" type="url" placeholder="https://www.instagram.com/שם-משתמש/" dir="ltr" value="https://www.instagram.com/__denis.pol__/">
+
+  <div class="preview" id="preview">
+    <img id="previewImg" src="" alt="תמונת פרופיל">
+    <p id="previewTxt">תמונה נמצאה ✅</p>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <button class="btn btn-gold" id="mainBtn" onclick="extractAndSave()" style="margin-top:16px">
+    📸 חלץ ושמור תמונה ←
+  </button>
+</div>
+
+<script>
+const BOT_URL = 'https://sapir-bot-production.up.railway.app';
+
+async function extractAndSave() {
+  const phone = document.getElementById('phoneField').value.trim();
+  const igUrl = document.getElementById('igField').value.trim();
+  const btn = document.getElementById('mainBtn');
+  const status = document.getElementById('status');
+  const preview = document.getElementById('preview');
+
+  if (!phone || !igUrl) {
+    showStatus('error', '❌ נא למלא מספר ואינסטגרם');
+    return;
+  }
+
+  // Extract username from Instagram URL
+  const match = igUrl.match(/instagram\.com\/([^/?#]+)/);
+  const username = match ? match[1].replace(/\/$/, '') : igUrl;
+
+  btn.disabled = true;
+  showStatus('loading', '⏳ מחלץ תמונה מאינסטגרם...');
+
+  let photoUrl = null;
+
+  // Method 1: Instagram internal API (works if user is logged in on same browser)
+  try {
+    const res = await fetch(`/api/v1/users/web_profile_info/?username=${username}`, {
+      headers: { 'X-IG-App-ID': '936619743392459', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'include'
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const user = data?.data?.user;
+      photoUrl = user?.profile_pic_url_hd || user?.profile_pic_url || null;
+      if (photoUrl) photoUrl = photoUrl.split('?')[0];
+    }
+  } catch (e) {
+    console.log('Method 1 failed:', e.message);
+  }
+
+  // Method 2: Open Instagram in popup and extract from there
+  if (!photoUrl) {
+    showStatus('loading', '⏳ פותח אינסטגרם בחלון...');
+    try {
+      photoUrl = await extractViaPopup(igUrl, username);
+    } catch (e) {
+      console.log('Method 2 failed:', e.message);
+    }
+  }
+
+  if (!photoUrl) {
+    showStatus('error', '❌ לא הצלחתי לחלץ תמונה אוטומטית.<br><br>שלח לבוט בווצאפ:<br><code style="font-size:12px">תמונה | [URL ישיר לתמונה שלך]</code>');
+    btn.disabled = false;
+    return;
+  }
+
+  // Show preview
+  document.getElementById('previewImg').src = photoUrl;
+  preview.style.display = 'block';
+  showStatus('loading', '⏳ שומר תמונה בבוט...');
+
+  // Send to bot
+  try {
+    const saveRes = await fetch(`${BOT_URL}/save-photo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, photoUrl })
+    });
+    if (saveRes.ok) {
+      showStatus('success', '✅ תמונה נשמרה בהצלחה!<br>תופיע בכל הצעה שתיצור מעכשיו 🎉');
+      btn.textContent = '✅ נשמר בהצלחה!';
+    } else {
+      showStatus('error', '❌ שגיאה בשמירה. נסה שוב.');
+      btn.disabled = false;
+    }
+  } catch (e) {
+    showStatus('error', '❌ לא הגעתי לשרת הבוט: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+function extractViaPopup(igUrl, username) {
+  return new Promise((resolve, reject) => {
+    // Open Instagram in popup
+    const popup = window.open(igUrl, '_blank', 'width=400,height=600,noopener=0');
+    if (!popup) { reject(new Error('Popup blocked')); return; }
+
+    const timeout = setTimeout(() => {
+      popup.close();
+      reject(new Error('Popup timeout'));
+    }, 15000);
+
+    // Poll popup for the API result
+    const interval = setInterval(async () => {
+      try {
+        if (popup.closed) {
+          clearInterval(interval);
+          clearTimeout(timeout);
+          reject(new Error('Popup closed'));
+          return;
+        }
+        // Try to read Instagram API from popup context
+        const result = await popup.fetch(`/api/v1/users/web_profile_info/?username=${username}`, {
+          headers: { 'X-IG-App-ID': '936619743392459' },
+          credentials: 'include'
+        }).then(r => r.json());
+        const url = result?.data?.user?.profile_pic_url_hd || result?.data?.user?.profile_pic_url;
+        if (url) {
+          clearInterval(interval);
+          clearTimeout(timeout);
+          popup.close();
+          resolve(url.split('?')[0]);
+        }
+      } catch (e) {
+        // Not ready yet or cross-origin error
+      }
+    }, 1500);
+  });
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.innerHTML = msg;
+  el.style.display = 'block';
+}
+</script>
+</body>
+</html>
