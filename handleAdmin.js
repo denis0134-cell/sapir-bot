@@ -139,6 +139,23 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // SHORT message with proposal keywords — ask for client details
+  const proposalKeywords = ['הצעת מחיר', 'הצעה', 'לבנות הצעה', 'proposal'];
+  if (proposalKeywords.some(k => text.includes(k))) {
+    await sendMessage(denisPhone,
+      'כדי לבנות הצעה, שלח/י פרטי הלקוח בפורמט חופשי, לדוגמה:\n\n' +
+      'שם: יוסי כהן\n' +
+      'עסק: מספרה תל אביב\n' +
+      'מצב: עובד לבד, אין לקוחות חדשים\n' +
+      'רוצה: להגדיל הכנסה\n' +
+      'עצר אותו: אין זמן ללמוד\n' +
+      'נייד: 05XXXXXXXX\n' +
+      'מחיר שדיברנו: 13,900\n\n' +
+      'ואני אבנה את הסיכום + הצעה תוך שניות ⚡'
+    );
+    return;
+  }
+
   // SHORT unknown message — show help
   await sendMessage(denisPhone,
     '📖 פקודות:\n\nהצעה | [מספר] | [מסלול] | [מחיר]\nסכם | [פרטי לקוח]\n[שם לקוח] — חיפוש היסטוריה'
