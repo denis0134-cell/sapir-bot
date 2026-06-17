@@ -38,18 +38,72 @@ else {
 </body></html>`);
 });
 
-// Save Denis photo - called from browser setup page
+// Save Denis photo permanently via Netlify hosting
 app.post('/save-photo', async (req, res) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   const { phone, photoUrl } = req.body;
-  if (!phone || !photoUrl || !photoUrl.startsWith('http')) {
+  if (!phone || !photoUrl) {
     return res.status(400).json({ error: 'missing phone or photoUrl' });
   }
+
+  let finalUrl = photoUrl;
+
+  // If base64 image — upload to Netlify for permanent URL
+  if (photoUrl.startsWith('data:image')) {
+    try {
+      const axios = require('axios');
+      const crypto = require('crypto');
+      const netlifyToken = process.env.NETLIFY_TOKEN;
+
+      if (netlifyToken) {
+        // Convert base64 to buffer
+        const base64Data = photoUrl.split(',')[1];
+        const imgBuffer = Buffer.from(base64Data, 'base64');
+        const sha1 = crypto.createHash('sha1').update(imgBuffer).digest('hex');
+
+        // Create/get site
+        const siteName = 'denis-pol-photo';
+        let siteId;
+        try {
+          const listRes = await axios.get('https://api.netlify.com/api/v1/sites',
+            { headers: { Authorization: 'Bearer ' + netlifyToken } });
+          const existing = listRes.data.find(s => s.name === siteName);
+          siteId = existing ? existing.id : null;
+        } catch {}
+
+        if (!siteId) {
+          const newSite = await axios.post('https://api.netlify.com/api/v1/sites',
+            { name: siteName },
+            { headers: { Authorization: 'Bearer ' + netlifyToken, 'Content-Type': 'application/json' } });
+          siteId = newSite.data.id;
+        }
+
+        // Deploy photo
+        const deployRes = await axios.post(
+          'https://api.netlify.com/api/v1/sites/' + siteId + '/deploys',
+          { files: { '/denis-photo.jpg': sha1 } },
+          { headers: { Authorization: 'Bearer ' + netlifyToken, 'Content-Type': 'application/json' } });
+
+        await axios.put(
+          'https://api.netlify.com/api/v1/deploys/' + deployRes.data.id + '/files/denis-photo.jpg',
+          imgBuffer,
+          { headers: { Authorization: 'Bearer ' + netlifyToken, 'Content-Type': 'application/octet-stream' }, maxBodyLength: Infinity });
+
+        finalUrl = 'https://' + siteName + '.netlify.app/denis-photo.jpg';
+        console.log('[SavePhoto] Uploaded to Netlify:', finalUrl);
+      }
+    } catch (netErr) {
+      console.error('[SavePhoto] Netlify upload failed:', netErr.message);
+      // Keep base64 as fallback
+    }
+  }
+
+  // Save to runtime
   const { upsertLead } = require('./leads');
-  upsertLead(phone, { myPhotoUrl: photoUrl });
-  console.log('[SavePhoto] Saved for', phone, ':', photoUrl.substring(0, 60));
-  res.json({ ok: true, saved: photoUrl.substring(0, 80) });
+  upsertLead(phone, { myPhotoUrl: finalUrl });
+  console.log('[SavePhoto] Saved for', phone, ':', finalUrl.substring(0, 60));
+  res.json({ ok: true, photoUrl: finalUrl });
 });
 
 // Handle OPTIONS preflight
