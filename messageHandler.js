@@ -23,8 +23,30 @@ async function handleDenisCommand(denisPhone, text) {
   const parts = text.split('|').map(p => p.trim());
 
   // ── Formatted command: הצעה | number | program | price ──
-  if (parts[0] === 'הצעה' && parts.length === 4) {
-    const [, leadPhone, program, rawPrice] = parts;
+  if (parts[0] === 'הצעה' && parts.length >= 4) {
+    const leadPhone = parts[1];
+    const program = parts[2];
+    const rawPrice = parts[3];
+
+    // Parse optional extra fields: name=X | prof=X | rev=X | goal=X
+    const extras = {};
+    parts.slice(4).forEach(p => {
+      const [k, ...v] = p.split('=');
+      if (k && v.length) extras[k.trim()] = v.join('=').trim();
+    });
+
+    // Pre-populate lead data if extras provided
+    if (extras.name || extras.prof) {
+      const existing = getLead(leadPhone) || {};
+      upsertLead(leadPhone, {
+        ...existing,
+        name: extras.name || existing.name,
+        profession: extras.prof || existing.profession,
+        currentRevenue: extras.rev || existing.currentRevenue,
+        goal: extras.goal || existing.goal,
+        lastMessageAt: new Date().toISOString()
+      });
+    }
     const price = rawPrice.replace(/[^0-9]/g, '');
     await sendMessage(denisPhone, `⏳ מייצר הצעה ל-${leadPhone}...`);
     try {
