@@ -72,6 +72,11 @@ select option{background:#111}
     <div class="field"><label>טלפון</label><input id="phone" type="tel" placeholder="05X-XXXXXXX" autocomplete="off"></div>
     <div class="field"><label>מקצוע / עסק</label><input id="profession" type="text" placeholder="מאמן עסקי, מספרה, יועצת..."></div>
     <div class="field"><label>הכנסה חודשית נוכחית <span class="opt-label">(אופציונלי)</span></label><input id="revenue" type="text" placeholder="15K, 30,000 ₪..."></div>
+    <div class="field">
+      <label>📸 רשת חברתית <span class="opt-label">(לתמונת פרופיל)</span></label>
+      <input id="social" type="url" placeholder="https://instagram.com/username / https://linkedin.com/in/...">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">הבוט יחלץ את התמונה ויוסיף לדף הנחיתה</div>
+    </div>
     <button class="next-btn" onclick="goTo(2)">המשך ←</button>
   </div>
 
@@ -185,6 +190,7 @@ function buildSummary() {
   const finalPrice = document.getElementById('customPrice').value || price;
 
   const rows = [
+    ['📸 רשת חברתית', social],
     ['שם', name],
     ['טלפון', phone],
     ['מקצוע', profession],
@@ -214,6 +220,7 @@ function sendToBot() {
   const painExtra = document.getElementById('painExtra').value.trim();
   const finalPrice = document.getElementById('customPrice').value || price;
   const allPains = [...pains, painExtra].filter(Boolean).join(', ');
+  const social = document.getElementById('social').value.trim();
 
   let cmd = `הצעה | ${phone} | ${prog} | ${finalPrice}`;
   if (name) cmd += ` | name=${name}`;
@@ -223,6 +230,7 @@ function sendToBot() {
   if (goal) cmd += ` | goal=${goal.substring(0, 60)}`;
   if (objection) cmd += ` | obj=${objection.substring(0, 40)}`;
   if (allPains) cmd += ` | pains=${allPains.substring(0, 80)}`;
+  if (social) cmd += ` | social=${social}`;
 
   const botNumber = '15556676573';
   window.open('https://wa.me/' + botNumber + '?text=' + encodeURIComponent(cmd), '_blank');
