@@ -11,11 +11,9 @@ async function handleIncomingMessage(message) {
 
   console.log(`[Handler] ${phone}: "${text}"`);
 
-    const isDenisCommand = /^(הצעה|סיכום)\s*\|/.test(text);
-  if (phone === process.env.DENIS_PHONE && isDenisCommand) {
-        await handleDenisCommand(phone, text);
-        return;
-    
+  if (phone === process.env.DENIS_PHONE) {
+    await handleDenisCommand(phone, text);
+    return;
   }
 
   await handleLeadMessage(phone, text);
@@ -59,10 +57,22 @@ async function handleLeadMessage(phone, text) {
   addMessage(phone, 'user', text);
 
   const conversation = getConversation(phone);
-  const result = await generateResponse(conversation, phone === process.env.DENIS_PHONE);
+  const result = await generateResponse(conversation);
 
   await sendMessage(phone, result.message);
   addMessage(phone, 'assistant', result.message);
+
+  // ── Auto-generate proposal when Claude decides it's time ──
+  if (result.action === 'send_proposal' && result.proposalData) {
+    const { program, price } = result.proposalData;
+    const normalizedProgram = program === 'BOTH' ? 'ABM+LDB' : program;
+    try {
+      await generateAndSendProposal(phone, normalizedProgram, price);
+      await notifyDenis(`📋 הצעה נשלחה אוטומטית ל-${getLead(phone)?.name || phone} — ${normalizedProgram} ₪${price}`);
+    } catch (err) {
+      console.error('[Handler] Auto-proposal error:', err.message);
+    }
+  }
 
   if (result.action === 'booked') {
     upsertLead(phone, { status: 'booked', followupCount: 0 });
