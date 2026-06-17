@@ -3,6 +3,7 @@ const { extractLeadInfo } = require('./claude');
 const { deployProposal } = require('./netlify');
 const { generateProposalHTML } = require('./proposal');
 const { sendMessage } = require('./whatsapp');
+const { fetchSocialPhoto } = require('./socialPhoto');
 
 function formatPrice(raw) {
   const num = parseInt(String(raw || '').replace(/[^0-9]/g, ''));
@@ -17,27 +18,44 @@ async function generateAndSendProposal(phone, program, price) {
     extracted = await extractLeadInfo(getConversation(phone));
   }
 
+  // Fetch client photo from social URL if available
+  let clientPhotoUrl = lead.photoUrl || null;
+  const socialUrl = lead.socialUrl || extracted.socialUrl || null;
+  if (!clientPhotoUrl && socialUrl) {
+    console.log('[Proposal] Fetching photo from:', socialUrl);
+    clientPhotoUrl = await fetchSocialPhoto(socialUrl);
+    if (clientPhotoUrl) {
+      upsertLead(phone, { photoUrl: clientPhotoUrl });
+      console.log('[Proposal] Photo found:', clientPhotoUrl);
+    }
+  }
+
+  const clientName = lead.name || extracted.name || 'לקוח יקר';
+  const clientProfession = lead.profession || extracted.profession || '';
+
+  // Build role badges from profession
+  const clientRoles = lead.roles || (clientProfession ? [`💼 ${clientProfession}`, '🤖 AI שעובד בשבילך — חדש!'] : []);
+
   const data = {
-    clientName: lead.name || extracted.name || 'לקוח יקר',
-    clientProfession: lead.profession || extracted.profession || '',
+    clientName,
+    clientProfession,
     clientBusiness: lead.business || extracted.business || '',
+    clientRoles,
     currentRevenue: lead.currentRevenue || extracted.currentRevenue || null,
+    targetRevenue: lead.targetRevenue || null,
     goal: lead.goal || extracted.goal || '',
     painPoints: lead.painPoints?.length ? lead.painPoints : (extracted.painPoints || []),
     program: program === 'ABM+LDB' ? 'BOTH' : program,
     price: formatPrice(price),
-    calendarLink: process.env.CALENDAR_LINK
+    calendarLink: process.env.CALENDAR_LINK,
+    clientPhotoUrl,
+    socialUrl,
   };
 
-  if (data.currentRevenue) {
-    const n = parseInt(String(data.currentRevenue).replace(/[^0-9]/g, ''));
-    if (!isNaN(n)) data.targetRevenue = `${n * 2}K+`;
-  }
-
   const html = generateProposalHTML(data);
-  const url = await deployProposal(html, data.clientName);
+  const url = await deployProposal(html, clientName);
 
-  const msg = `היי ${data.clientName} 🌟\n\nהכנתי לך הצעה מותאמת אישית — כנס/י לראות:\n\n${url}\n\nשאלות? אני כאן 🙏`;
+  const msg = `היי ${clientName} 🌟\n\nהכנתי לך הצעה מותאמת אישית — כנס/י לראות:\n\n${url}\n\nשאלות? אני כאן 🙏`;
   await sendMessage(phone, msg);
 
   upsertLead(phone, {
