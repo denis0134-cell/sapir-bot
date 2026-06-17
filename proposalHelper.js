@@ -36,6 +36,10 @@ async function generateAndSendProposal(phone, program, price) {
   // Build role badges from profession
   const clientRoles = lead.roles || (clientProfession ? [`💼 ${clientProfession}`, '🤖 AI שעובד בשבילך — חדש!'] : []);
 
+  // Get Denis's stored photo
+  const denisLead = require('./leads').getLead(process.env.DENIS_PHONE);
+  const denisPhotoUrl = denisLead && denisLead.myPhotoUrl ? denisLead.myPhotoUrl : null;
+
   const data = {
     clientName,
     clientProfession,
@@ -50,6 +54,7 @@ async function generateAndSendProposal(phone, program, price) {
     calendarLink: process.env.CALENDAR_LINK,
     clientPhotoUrl,
     socialUrl,
+    denisPhotoUrl,
   };
 
   // Generate AI personalized headline
