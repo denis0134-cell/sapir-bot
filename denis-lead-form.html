@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>טופס ליד — אלונה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #C9A84C;
+    --gold-light: #E8C96A;
+    --bg: #0D0D0D;
+    --surface: #161616;
+    --card: #1E1E1E;
+    --border: #2A2A2A;
+    --text: #F0F0F0;
+    --muted: #888;
+    --success: #4CAF50;
+    --danger: #E53935;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Heebo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0D0D0D 0%, #1a1400 100%);
+    border-bottom: 1px solid var(--gold);
+    padding: 16px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-icon {
+    width: 36px; height: 36px;
+    background: var(--gold);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .header h1 { font-size: 16px; font-weight: 700; color: var(--gold); }
+  .header p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* Progress */
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
+  /* Sections */
+  .section {
+    display: none;
+    padding: 20px 16px;
+    animation: fadeIn 0.25s ease;
+  }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-num {
+    width: 28px; height: 28px;
+    background: var(--gold);
+    color: #000;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 17px; font-weight: 700; }
+  .section-header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Fields */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field label span { color: var(--danger); margin-right: 2px; }
+  input[type=text], input[type=tel], input[type=number], input[type=date], select, textarea {
+    width: 100%;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    font-family: 'Heebo', sans-serif;
+    font-size: 15px;
+    padding: 13px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--gold);
+    background: #1a1a0d;
+  }
+  textarea { min-height: 80px; resize: vertical; line-height: 1.5; }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 14px center;
+    padding-left: 36px;
+  }
+  select option { background: #1E1E1E; }
+
+  /* Row */
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* Slider */
+  .slider-wrap {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .slider-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .slider-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 50px;
+    text-align: left;
+  }
+  input[type=range] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+    outline: none;
+    padding: 0;
+    border: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+  }
+
+  /* Chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: var(--card);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    color: var(--text);
+  }
+  .chip.selected {
+    border-color: var(--gold);
+    background: rgba(201,168,76,0.15);
+    color: var(--gold);
+  }
+
+  /* Toggle */
+  .toggle-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+  .toggle-field label { font-size: 14px; font-weight: 500; }
+  .toggle-field small { font-size: 11px; color: var(--muted); display: block; margin-top: 3px; }
+  .toggle {
+    width: 48px; height: 28px;
+    border-radius: 14px;
+    background: var(--border);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--gold); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: white;
+    top: 3px; right: 3px;
+    transition: right 0.2s;
+  }
+  .toggle.on::after { right: 23px; }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    flex: 1;
+    padding: 14px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Heebo', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-back {
+    background: var(--card);
+    color: var(--muted);
+    border: 1.5px solid var(--border);
+    flex: 0.6;
+  }
+  .btn-next {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    color: #000;
+  }
+  .btn-submit {
+    background: linear-gradient(135deg, #2E7D32, #4CAF50);
+    color: white;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  /* Success state */
+  .success-screen {
+    display: none;
+    text-align: center;
+    padding: 60px 20px;
+    animation: fadeIn 0.4s ease;
+  }
+  .success-screen.show { display: block; }
+  .success-icon { font-size: 64px; margin-bottom: 16px; }
+  .success-screen h2 { font-size: 22px; font-weight: 700; color: var(--gold); margin-bottom: 8px; }
+  .success-screen p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .success-details {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin: 20px 0;
+    text-align: right;
+  }
+  .success-details .row-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .success-details .row-item:last-child { border-bottom: none; }
+  .success-details .key { color: var(--muted); }
+  .success-details .val { font-weight: 600; color: var(--gold); }
+
+  .spinner {
+    display: none;
+    width: 20px; height: 20px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin: 0 auto;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-icon">🤖</div>
+  <div>
+    <h1>אלונה — טופס ליד</h1>
+    <p>מלא לאחר שיחת מכירה</p>
+  </div>
+</div>
+
+<div class="progress-bar">
+  <div class="progress-fill" id="progress"></div>
+</div>
+
+<!-- SECTION 1: פרטי הליד -->
+<div class="section active" id="s1">
+  <div class="section-header">
+    <div class="section-num">1</div>
+    <div>
+      <h2>פרטי הליד</h2>
+      <p>עם מי דיברת?</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>שם מלא <span>*</span></label>
+    <input type="text" id="name" placeholder="רחל לוי" inputmode="text">
+  </div>
+  <div class="field">
+    <label>מספר טלפון <span>*</span></label>
+    <input type="tel" id="phone" placeholder="050-1234567" inputmode="tel">
+  </div>
+  <div class="field">
+    <label>תחום עיסוק</label>
+    <input type="text" id="profession" placeholder="מטפלת, מאמנת, יועצת...">
+  </div>
+  <div class="field">
+    <label>מקור הליד</label>
+    <div class="chips" id="sourceChips">
+      <div class="chip" data-val="webinar">וובינר</div>
+      <div class="chip" data-val="referral">הפניה</div>
+      <div class="chip" data-val="facebook">פייסבוק</div>
+      <div class="chip" data-val="organic">אורגני</div>
+      <div class="chip" data-val="cold">קר</div>
+    </div>
+    <input type="hidden" id="source" value="">
+  </div>
+</div>
+
+<!-- SECTION 2: כאב ומטרה -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">2</div>
+    <div>
+      <h2>כאב ומטרה</h2>
+      <p>מה מניע אותו / אותה?</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>הכאב המרכזי <span>*</span></label>
+    <textarea id="pain" placeholder="מה הבעיה שהכי כואבת לה? מה שמונע ממנה מלהתקדם?"></textarea>
+  </div>
+  <div class="field">
+    <label>המטרה — מה היא רוצה להשיג?</label>
+    <textarea id="goal" placeholder="להכפיל הכנסה, לצאת מחובות, להיות עצמאית..."></textarea>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label>הכנסה נוכחית</label>
+      <input type="text" id="currentRevenue" placeholder="8,000 ₪">
+    </div>
+    <div class="field">
+      <label>הכנסת יעד</label>
+      <input type="text" id="targetRevenue" placeholder="20,000 ₪">
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 3: ההצעה -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">3</div>
+    <div>
+      <h2>ההצעה שהוצגה</h2>
+      <p>מה הצעת?</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>מסלול שהוצע</label>
+    <div class="chips" id="programChips">
+      <div class="chip" data-val="ABM">ABM — 13,900</div>
+      <div class="chip" data-val="LDB">LDB — 18,900</div>
+      <div class="chip" data-val="BOTH">ABM+LDB — 24,900</div>
+      <div class="chip" data-val="OTHER">אחר</div>
+    </div>
+    <input type="hidden" id="program" value="">
+  </div>
+  <div class="field">
+    <label>מחיר שהוצג (₪)</label>
+    <input type="number" id="price" placeholder="13900" inputmode="numeric">
+  </div>
+  <div class="field">
+    <label>מה אמרה על ההצעה?</label>
+    <textarea id="reaction" placeholder="תגובה ראשונית לשמוע את ההצעה..."></textarea>
+  </div>
+</div>
+
+<!-- SECTION 4: התנגדות וטמפרטורה -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">4</div>
+    <div>
+      <h2>התנגדות וחום</h2>
+      <p>למה לא סגרה?</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>ההתנגדות העיקרית <span>*</span></label>
+    <div class="chips" id="objectionChips" style="margin-bottom:10px">
+      <div class="chip" data-val="price">יקר לי</div>
+      <div class="chip" data-val="think">צריכה לחשוב</div>
+      <div class="chip" data-val="spouse">להתייעץ עם בן/בת זוג</div>
+      <div class="chip" data-val="timing">לא עכשיו</div>
+      <div class="chip" data-val="trust">לא מספיק בוטחת</div>
+      <div class="chip" data-val="other">אחר</div>
+    </div>
+    <input type="text" id="objection" placeholder="פרט / הוסף...">
+  </div>
+
+  <div class="field">
+    <label>טמפרטורת הליד</label>
+    <div class="chips" id="tempChips">
+      <div class="chip" data-val="hot">🔥 חם</div>
+      <div class="chip" data-val="warm">⚡ פושר</div>
+      <div class="chip" data-val="cold">❄️ קר</div>
+    </div>
+    <input type="hidden" id="temperature" value="">
+  </div>
+
+  <div class="field">
+    <label>סיכוי סגירה</label>
+    <div class="slider-wrap">
+      <div class="slider-label">
+        <span style="font-size:13px;color:var(--muted)">0%</span>
+        <span class="slider-val" id="probVal">60%</span>
+        <span style="font-size:13px;color:var(--muted)">100%</span>
+      </div>
+      <input type="range" id="probability" min="0" max="100" value="60" step="5">
+    </div>
+  </div>
+</div>
+
+<!-- SECTION 5: פולואפ -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">5</div>
+    <div>
+      <h2>פולואפ</h2>
+      <p>מה הצעד הבא?</p>
+    </div>
+  </div>
+
+  <div class="field">
+    <label>מתי לפנות?</label>
+    <input type="date" id="followupDate">
+  </div>
+  <div class="field">
+    <label>איך לפנות?</label>
+    <div class="chips" id="actionChips">
+      <div class="chip" data-val="whatsapp">💬 ווצאפ</div>
+      <div class="chip" data-val="call">📞 שיחה</div>
+      <div class="chip" data-val="email">📧 מייל</div>
+    </div>
+    <input type="hidden" id="followupAction" value="whatsapp">
+  </div>
+  <div class="field">
+    <label>הערות לפולואפ</label>
+    <textarea id="notes" placeholder="נקודות חשובות לזכור לשיחה הבאה..."></textarea>
+  </div>
+
+  <div class="toggle-field">
+    <div>
+      <label>הפעל רצף פולואפ אוטומטי</label>
+      <small>אלונה תשלח 4 הודעות לאורך 14 ימים</small>
+    </div>
+    <div class="toggle" id="autoToggle" onclick="toggleAuto()"></div>
+  </div>
+  <input type="hidden" id="autoSequence" value="false">
+</div>
+
+<!-- Success screen -->
+<div class="success-screen" id="successScreen">
+  <div class="success-icon">✅</div>
+  <h2 id="successTitle">ליד נשמר!</h2>
+  <p id="successMsg">אלונה קיבלה את הפרטים ותתחיל לעבוד</p>
+  <div class="success-details" id="successDetails"></div>
+  <button class="btn btn-next" style="width:100%;margin-top:10px" onclick="resetForm()">➕ ליד חדש</button>
+</div>
+
+<!-- Nav buttons -->
+<div class="nav" id="navBar">
+  <button class="btn btn-back" id="backBtn" onclick="prevStep()" style="display:none">← חזור</button>
+  <button class="btn btn-next" id="nextBtn" onclick="nextStep()">הבא ←</button>
+</div>
+
+<script>
+const TOTAL = 5;
+let current = 1;
+let autoOn = false;
+
+// Set default followup date = tomorrow
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 3);
+document.getElementById('followupDate').value = tomorrow.toISOString().split('T')[0];
+
+// Action chips auto-select whatsapp
+setTimeout(() => selectChip('actionChips', 'whatsapp'), 100);
+
+function updateProgress() {
+  document.getElementById('progress').style.width = (current / TOTAL * 100) + '%';
+}
+
+function showSection(n) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('s' + n).classList.add('active');
+  document.getElementById('backBtn').style.display = n > 1 ? 'block' : 'none';
+  document.getElementById('nextBtn').textContent = n === TOTAL ? '💾 שמור ליד' : 'הבא ←';
+  document.getElementById('nextBtn').className = 'btn ' + (n === TOTAL ? 'btn-submit' : 'btn-next');
+  updateProgress();
+  window.scrollTo(0, 0);
+}
+
+function nextStep() {
+  if (!validateStep()) return;
+  if (current === TOTAL) { submitForm(); return; }
+  current++;
+  showSection(current);
+}
+
+function prevStep() {
+  if (current > 1) { current--; showSection(current); }
+}
+
+function validateStep() {
+  if (current === 1) {
+    if (!document.getElementById('name').value.trim()) { shake('name'); return false; }
+    if (!document.getElementById('phone').value.trim()) { shake('phone'); return false; }
+  }
+  if (current === 2) {
+    if (!document.getElementById('pain').value.trim()) { shake('pain'); return false; }
+  }
+  return true;
+}
+
+function shake(id) {
+  const el = document.getElementById(id);
+  el.style.borderColor = '#E53935';
+  el.style.animation = 'shake 0.3s ease';
+  setTimeout(() => { el.style.borderColor = ''; el.style.animation = ''; }, 800);
+}
+
+// Chips
+function setupChips(groupId, hiddenId) {
+  document.querySelectorAll('#' + groupId + ' .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#' + groupId + ' .chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      if (hiddenId) document.getElementById(hiddenId).value = chip.dataset.val;
+    });
+  });
+}
+
+function selectChip(groupId, val) {
+  document.querySelectorAll('#' + groupId + ' .chip').forEach(c => {
+    if (c.dataset.val === val) c.classList.add('selected');
+  });
+}
+
+setupChips('sourceChips', 'source');
+setupChips('programChips', 'program');
+setupChips('objectionChips', null);
+setupChips('tempChips', 'temperature');
+setupChips('actionChips', 'followupAction');
+
+// Objection chips — multi + set text
+document.querySelectorAll('#objectionChips .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('selected');
+    const selected = [...document.querySelectorAll('#objectionChips .chip.selected')].map(c => c.textContent).join(', ');
+    if (!document.getElementById('objection').value) {
+      document.getElementById('objection').value = selected;
+    }
+  });
+});
+
+// Range slider
+document.getElementById('probability').addEventListener('input', function() {
+  document.getElementById('probVal').textContent = this.value + '%';
+});
+
+// Auto toggle
+function toggleAuto() {
+  autoOn = !autoOn;
+  document.getElementById('autoToggle').classList.toggle('on', autoOn);
+  document.getElementById('autoSequence').value = autoOn;
+}
+
+// Submit
+async function submitForm() {
+  const btn = document.getElementById('nextBtn');
+  btn.innerHTML = '<div class="spinner" style="display:block"></div>';
+  btn.disabled = true;
+
+  const phone = document.getElementById('phone').value.trim().replace(/[-\s]/g, '');
+  const e164 = phone.startsWith('972') ? phone : '972' + phone.replace(/^0/, '');
+
+  const data = {
+    name: document.getElementById('name').value.trim(),
+    phone: e164,
+    profession: document.getElementById('profession').value.trim(),
+    source: document.getElementById('source').value,
+    painPoints: [document.getElementById('pain').value.trim()].filter(Boolean),
+    goal: document.getElementById('goal').value.trim(),
+    currentRevenue: document.getElementById('currentRevenue').value.trim(),
+    targetRevenue: document.getElementById('targetRevenue').value.trim(),
+    program: document.getElementById('program').value,
+    price: document.getElementById('price').value,
+    reaction: document.getElementById('reaction').value.trim(),
+    objection: document.getElementById('objection').value.trim(),
+    temperature: document.getElementById('temperature').value,
+    closingProbability: parseInt(document.getElementById('probability').value),
+    nextFollowupDate: document.getElementById('followupDate').value,
+    nextFollowupAction: document.getElementById('followupAction').value || 'whatsapp',
+    notes: document.getElementById('notes').value.trim(),
+    autoSequence: document.getElementById('autoSequence').value === 'true',
+    denisPhone: 'DENIS'
+  };
+
+  try {
+    const resp = await fetch('/add-lead', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    const result = await resp.json();
+    showSuccess(data, result);
+  } catch(e) {
+    alert('שגיאה בשמירה: ' + e.message);
+    btn.innerHTML = '💾 שמור ליד';
+    btn.disabled = false;
+  }
+}
+
+function showSuccess(data, result) {
+  document.getElementById('navBar').style.display = 'none';
+  document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+  const ss = document.getElementById('successScreen');
+  ss.classList.add('show');
+
+  const prob = data.closingProbability;
+  const icon = prob >= 70 ? '🔥' : prob >= 50 ? '⚡' : '🟡';
+  document.getElementById('successTitle').textContent = data.name + ' נשמר!';
+  document.getElementById('successMsg').textContent = data.autoSequence
+    ? 'אלונה תשלח 4 הודעות אוטומטיות ב-14 הימים הקרובים'
+    : 'הפרטים נשמרו. אלונה תזכיר פולואפ בתאריך שקבעת';
+
+  const details = document.getElementById('successDetails');
+  const rows = [
+    ['טלפון', data.phone],
+    ['תחום', data.profession || '—'],
+    ['סיכוי', icon + ' ' + prob + '%'],
+    ['פולואפ', data.nextFollowupDate],
+    ['רצף אוטומטי', data.autoSequence ? '✅ פעיל' : '⏸ כבוי']
+  ].filter(r => r[1]);
+  details.innerHTML = rows.map(r => '<div class="row-item"><span class="key">' + r[0] + '</span><span class="val">' + r[1] + '</span></div>').join('');
+}
+
+function resetForm() {
+  location.reload();
+}
+
+// Add shake animation
+const style = document.createElement('style');
+style.textContent = '@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }';
+document.head.appendChild(style);
+
+updateProgress();
+</script>
+</body>
+</html>
