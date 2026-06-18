@@ -99,7 +99,19 @@ function markNotRelevant(phone) {
   return upsertLead(phone, { status: 'not_relevant' });
 }
 
-module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, markNotRelevant, findLeadsByName, getNamedLeads };
+
+function getLeadsDueToday() {
+  const db = readDB();
+  const today = new Date().toISOString().split('T')[0];
+  const DENIS = process.env.DENIS_PHONE || '972509698121';
+  return Object.values(db).filter(l =>
+    l.phone !== DENIS &&
+    l.nextFollowupDate && l.nextFollowupDate <= today &&
+    l.status !== 'closed_won' && l.status !== 'not_relevant' && l.status !== 'new'
+  ).sort((a, b) => (b.closingProbability || 0) - (a.closingProbability || 0));
+}
+
+module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, getLeadsDueToday, markNotRelevant, findLeadsByName, getNamedLeads };
 
 // Find leads by partial name match
 function findLeadsByName(query) {
