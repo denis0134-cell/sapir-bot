@@ -134,6 +134,41 @@ async function handleDenisAdmin(phone, text) {
     return;
   }
 
+  // ═══ 1.7 QUICK SEND COMMAND ══
+  // "תשלחי ללקוחה", "שלחי לה", "שלח" = send last draft to last lead
+  if (/^(תשלחי|שלחי|שלח|תשלח)\s*(ל(לקוח|לקוחה|ה|ו|[א-ת]{2,10}))?$/i.test(t)) {
+    const nameMatch = t.match(/ל([א-ת]{2,15})$/);
+    const name = nameMatch ? nameMatch[1] : null;
+    // Route to SEND_TO_LEAD with name if extracted
+    let targetLead = null;
+    if (name) {
+      const matches = findLeadsByName(name);
+      if (matches.length > 0) targetLead = matches[0];
+    }
+    if (!targetLead && denisData.lastDiscussedPhone) {
+      targetLead = getLead(denisData.lastDiscussedPhone);
+    }
+    const draft = denisData.lastFollowupDraft || denisData.lastResponse;
+    if (!targetLead || !draft) {
+      await sendMessage(denisPhone, !targetLead
+        ? '❌ לא יודעת למי לשלוח. ציין שם: "שלחי לרחל"'
+        : '❌ אין הודעה מוכנה. כתוב פולואפ קודם.'
+      );
+      return;
+    }
+    const leadName = targetLead.name || targetLead.phone;
+    await sendMessage(denisPhone, '📤 שולחת ל*' + leadName + '*:\n\n' + draft);
+    await sendMessage(targetLead.phone, draft);
+    upsertLead(targetLead.phone, {
+      status: 'follow_up',
+      lastFollowupAt: new Date().toISOString(),
+      followupCount: (targetLead.followupCount || 0) + 1
+    });
+    upsertLead(denisPhone, { lastFollowupDraft: null });
+    await sendMessage(denisPhone, '✅ נשלח! סטטוס עודכן לפולואפ.');
+    return;
+  }
+
   // ═══ 2. PHOTO SETUP ═══
   if (/^תמונה\s*\|/i.test(t)) {
     const photoUrl = t.split('|').slice(1).join('|').trim();
@@ -361,6 +396,7 @@ async function handleDenisAdmin(phone, text) {
           await sendMessage(denisPhone, 'שלח לי את הפרטים:\n\nשם + טלפון + מה דיברתם + מה עצר אותם');
           break;
         }
+        upsertLead(denisPhone, { lastFollowupDraft: msg, lastRequest: t });
         await sendMessage(denisPhone, msg);
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
       break;
@@ -638,6 +674,52 @@ async function handleDenisAdmin(phone, text) {
         upsertLead(lead.phone, { followupSequence: lead.followupSequence, status: 'paused' });
       }
       await sendMessage(denisPhone, '⏹ רצף הפולואפ ל' + lead.name + ' נעצר.');
+      break;
+    }
+
+    case 'SEND_TO_LEAD': {
+      // Get the lead to send to
+      const targetName = params.name;
+      let targetLead = null;
+
+      if (targetName) {
+        const matches = findLeadsByName(targetName);
+        if (matches.length > 0) targetLead = matches[0];
+      }
+      // Fallback: last discussed lead
+      if (!targetLead && denisData.lastDiscussedPhone) {
+        targetLead = getLead(denisData.lastDiscussedPhone);
+      }
+
+      if (!targetLead) {
+        await sendMessage(denisPhone, '❌ לא מצאתי את הלקוחה. ציין שם או שלח פרטים.');
+        break;
+      }
+
+      // Get message to send: lastFollowupDraft → lastResponse → generate new
+      let msgToSend = denisData.lastFollowupDraft || denisData.lastResponse;
+      if (!msgToSend || msgToSend.length < 10) {
+        await sendMessage(denisPhone, '❌ אין הודעה מוכנה לשליחה. כתוב פולואפ קודם.');
+        break;
+      }
+
+      // Confirm + send
+      const leadName = targetLead.name || targetLead.phone;
+      await sendMessage(denisPhone,
+        '📤 שולחת ל*' + leadName + '* (' + targetLead.phone + '):\n\n' + msgToSend
+      );
+      try {
+        await sendMessage(targetLead.phone, msgToSend);
+        upsertLead(targetLead.phone, {
+          status: 'follow_up',
+          lastFollowupAt: new Date().toISOString(),
+          followupCount: (targetLead.followupCount || 0) + 1
+        });
+        upsertLead(denisPhone, { lastFollowupDraft: null });
+        await sendMessage(denisPhone, '✅ נשלח! עדכנתי את הסטטוס ל"פולואפ".');
+      } catch (e) {
+        await sendMessage(denisPhone, '❌ שגיאה בשליחה: ' + e.message);
+      }
       break;
     }
 
