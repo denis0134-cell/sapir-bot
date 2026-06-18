@@ -10,7 +10,14 @@ const { buildSystemPrompt, addKnowledge, getKnowledge } = require('./alonaContex
 const { detectIntent } = require('./intentDetector');
 const { analyzeSalesConversation, writeFollowupMessages, writeCustomFollowup, scoreLeads, adviseDecision, buildSalesScript, writeMarketingAsset } = require('./salesAnalysis');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
-const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport, logHealth, getHealthReport, addTask, completeTask, getTasks, getTaskList, getMorningQuestions, getEveningQuestions, buildDailyReport } = require('./personalData');
+const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport,
+  logHealth, getHealthReport, addTask, completeTask, delayTask, getTasks, getTaskList,
+  getMorningQuestions, getEveningQuestions, saveCheckIn, setPendingCheckin, getPendingCheckin, getTodayCheckIn,
+  buildDailyReport, generateWeeklyReport, generateLifeDashboard,
+  calculateScores, getScoresText, storeDecision, getDecisions, formatDecisions,
+  checkAccountability, createGoal, listGoals, getGoalsText, updateGoal,
+  getUserProfile
+} = require('./personalData');
 const axios = require('axios');
 
 const denisPhone = process.env.DENIS_PHONE || '972509698121';
@@ -176,6 +183,22 @@ async function handleDenisAdmin(phone, text) {
     } else {
       await sendMessage(denisPhone, 'הסבירי מה הטעות ומה תרצי, ואזכור.');
     }
+    return;
+  }
+
+  // ═══ 3.5 PENDING CHECK-IN ANSWER ═══
+  // If Denis just received check-in questions and sends numbered answers
+  const pendingCheckin = getPendingCheckin();
+  if (pendingCheckin && /^\d[.:]/.test(t)) {
+    const lines = t.split('\n').map(l => l.replace(/^\d+\.?\s*/, '').trim()).filter(Boolean);
+    const checkin = saveCheckIn(pendingCheckin, lines);
+    const scores = calculateScores();
+    await sendMessage(denisPhone,
+      `✅ ${pendingCheckin === 'morning' ? 'בוקר' : 'ערב'} נרשם!\n\n` +
+      (pendingCheckin === 'evening'
+        ? getScoresText()
+        : `🎯 פוקוס: ${checkin.morningFocus || lines[0] || ''}\n\n${generateLifeDashboard()}`)
+    );
     return;
   }
 
@@ -350,11 +373,13 @@ async function handleDenisAdmin(phone, text) {
     }
 
     case 'MORNING_CHECKIN': {
+      setPendingCheckin('morning');
       await sendMessage(denisPhone, getMorningQuestions());
       break;
     }
 
     case 'EVENING_CHECKIN': {
+      setPendingCheckin('evening');
       await sendMessage(denisPhone, getEveningQuestions());
       break;
     }
@@ -412,6 +437,96 @@ async function handleDenisAdmin(phone, text) {
         upsertLead(denisPhone, { lastRequest: t, lastResponse: content });
         await sendMessage(denisPhone, content);
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
+      break;
+    }
+
+    case 'CREATE_GOAL': {
+      const title = params.context || params.question || t.replace(/.*מטרה:?\s*/i,'').trim();
+      const goal = createGoal({
+        title: title.substring(0, 100),
+        category: params.metric || 'business',
+        priority: params.priority || 'high',
+        successMetric: params.value || '',
+        whyItMatters: ''
+      });
+      await sendMessage(denisPhone, `✅ מטרה נרשמה!\n\n📌 "${goal.title}"\nקטגוריה: ${goal.category}\n\n${getGoalsText()}`);
+      break;
+    }
+
+    case 'LIST_GOALS': {
+      await sendMessage(denisPhone, getGoalsText());
+      break;
+    }
+
+    case 'STORE_DECISION': {
+      const decisionText = params.context || params.question || t;
+      await sendMessage(denisPhone, '⏳ רושמת את ההחלטה...');
+      try {
+        const rec = storeDecision({
+          title: decisionText.substring(0, 60),
+          category: params.metric || 'business',
+          decision: decisionText,
+          reasoning: params.value || '',
+          risks: [],
+          expectedOutcome: ''
+        });
+        await sendMessage(denisPhone, `✅ ההחלטה נרשמה!\n\n"${rec.decision.substring(0, 100)}"\n\nהחלטות אחרונות:\n${formatDecisions()}`);
+      } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
+      break;
+    }
+
+    case 'LIST_DECISIONS': {
+      await sendMessage(denisPhone, formatDecisions());
+      break;
+    }
+
+    case 'WEEKLY_REPORT': {
+      await sendMessage(denisPhone, generateWeeklyReport());
+      break;
+    }
+
+    case 'LIFE_DASHBOARD': {
+      await sendMessage(denisPhone, generateLifeDashboard());
+      break;
+    }
+
+    case 'SCORE_CHECK': {
+      await sendMessage(denisPhone, getScoresText());
+      break;
+    }
+
+    case 'UPDATE_LEAD_FULL': {
+      if (!params.name) { await sendMessage(denisPhone, 'איזה ליד לעדכן?'); break; }
+      const matches = findLeadsByName(params.name);
+      if (matches.length === 0) { await sendMessage(denisPhone, `❌ לא מצאתי "${params.name}"`); break; }
+      const lead = matches[0];
+      const updates = {};
+      if (params.value && ['cold','warm','hot'].includes(params.value)) updates.temperature = params.value;
+      if (params.amount) updates.closingProbability = parseInt(params.amount);
+      if (params.context) updates.lastNote = params.context;
+      upsertLead(lead.phone, updates);
+      upsertLead(denisPhone, { lastDiscussedPhone: lead.phone });
+      const updatesSummary = Object.entries(updates).map(([k,v]) => `${k}: ${v}`).join(', ');
+      await sendMessage(denisPhone, `✅ עודכן: ${lead.name}\n${updatesSummary}`);
+      break;
+    }
+
+    case 'SAVE_CHECKIN': {
+      const pending = getPendingCheckin();
+      if (!pending) {
+        await sendMessage(denisPhone, 'לא מצאתי שאלות פתוחות. שלח "צ'ק אין בוקר" או "צ'ק אין ערב" קודם.');
+        break;
+      }
+      // Parse numbered answers
+      const lines = t.split('\n').map(l => l.replace(/^\d+\.?\s*/, '').trim()).filter(Boolean);
+      const checkin = saveCheckIn(pending, lines);
+      const scores = calculateScores();
+      await sendMessage(denisPhone,
+        `✅ ${pending === 'morning' ? 'בוקר' : 'ערב'} נרשם!\n\n` +
+        (pending === 'evening'
+          ? `📊 ציון היום: ${scores.overall}/100\n${getScoresText()}`
+          : `🎯 פוקוס היום: ${checkin.morningFocus || 'לא צוין'}\n\n${generateLifeDashboard()}`)
+      );
       break;
     }
 
