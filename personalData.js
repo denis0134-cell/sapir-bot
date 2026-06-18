@@ -451,18 +451,15 @@ function updateGoal(id, updates) {
 
 function getGoalsText() {
   const goals = listGoals('active');
-  if (!goals.length) return 'אין מטרות פעילות. הגדר מטרה: "רוצה להגדיר מטרה: [שם] — [מה מודד הצלחה]"';
-  return goals.map((g, i) => {
+  if (!goals.length) return 'אין מטרות פעילות. הגדר מטרה חדשה.';
+  const lines = goals.map(function(g) {
     const icon = g.priority === 'critical' ? '🔴' : g.priority === 'high' ? '🟠' : '🟡';
-    let line = `${icon} ${g.title}`;
-    if (g.successMetric) line += `
-   מדד: ${g.successMetric}`;
-    if (g.nextAction) line += `
-   פעולה הבאה: ${g.nextAction}`;
+    let line = icon + ' ' + g.title;
+    if (g.successMetric) line += '\n   מדד: ' + g.successMetric;
+    if (g.nextAction) line += '\n   פעולה הבאה: ' + g.nextAction;
     return line;
-  }).join('
-
-');
+  });
+  return lines.join('\n\n');
 }
 
 // ── Decisions Table ───────────────────────────
@@ -493,13 +490,11 @@ function getDecisions(n = 5) {
 function formatDecisions() {
   const decisions = getDecisions(5);
   if (!decisions.length) return 'אין החלטות רשומות עדיין.';
-  return decisions.map(d =>
-    `📌 ${d.title}
-   ${d.decision}
-   ${new Date(d.createdAt).toLocaleDateString('he-IL')}`
-  ).join('
-
-');
+  const lines = decisions.map(function(d) {
+    const dateStr = new Date(d.createdAt).toLocaleDateString('he-IL');
+    return '📌 ' + d.title + '\n   ' + d.decision + '\n   ' + dateStr;
+  });
+  return lines.join('\n\n');
 }
 
 // ── Structured Daily Check-in ─────────────────
@@ -632,27 +627,18 @@ function checkAccountability() {
   const data = loadData();
   const warnings = [];
 
-  // Tasks delayed 3+ times
-  const delayed = data.tasks.filter(t => !t.done && (t.delayCount || 0) >= 3);
+  const delayed = data.tasks.filter(function(t) { return !t.done && (t.delayCount || 0) >= 3; });
   if (delayed.length > 0) {
+    const taskList = delayed.map(function(t) { return '• "' + t.text + '"'; }).join('\n');
+    const subject = delayed.length > 1 ? 'המשימות האלו נדחו' : 'המשימה הזו נדחתה';
     warnings.push({
       type: 'DELAYED_TASK',
-      message: `דניס, ${delayed.length > 1 ? 'המשימות האלו נדחו' : 'המשימה הזו נדחתה'} 3+ פעמים:
-${delayed.map(t => `• "${t.text}"`).join('
-')}
-
-יש כאן אחת מ-3 אפשרויות:
-1. היא לא באמת חשובה
-2. היא גדולה מדי
-3. יש חסם
-
-מה נכון?`
+      message: 'דניס, ' + subject + ' 3+ פעמים:\n' + taskList + '\n\nיש כאן אחת מ-3 אפשרויות:\n1. היא לא באמת חשובה\n2. היא גדולה מדי\n3. יש חסם\n\nמה נכון?'
     });
   }
 
-  // Goals stale 14+ days
   const now = Date.now();
-  const stale = (data.activeGoals || []).filter(g => {
+  const stale = (data.activeGoals || []).filter(function(g) {
     if (g.status !== 'active' || !g.lastUpdated) return false;
     return (now - new Date(g.lastUpdated)) / 86400000 >= 14;
   });
@@ -661,12 +647,7 @@ ${delayed.map(t => `• "${t.text}"`).join('
     const days = Math.floor((now - new Date(g.lastUpdated)) / 86400000);
     warnings.push({
       type: 'STALE_GOAL',
-      message: `המטרה "${g.title}" לא זזה ${days} ימים.
-
-צריך לבחור:
-1. ממשיכים ומגדירים פעולה קטנה
-2. מקפיאים
-3. מוחקים`
+      message: 'המטרה "' + g.title + '" לא זזה ' + days + ' ימים.\n\nצריך לבחור:\n1. ממשיכים ומגדירים פעולה קטנה\n2. מקפיאים\n3. מוחקים'
     });
   }
 
