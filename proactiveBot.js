@@ -4,6 +4,8 @@
  * בוקר: 8:00 | תזכורת פולואפ: 10:00 | ערב: 21:00
  */
 const { getMorningQuestions, getEveningQuestions, getGoalStatus, getTasks, checkAccountability, generateLifeDashboard, getScoresText } = require('./personalData');
+const { getLeadsDueToday } = require('./leads');
+const { writeFollowupMessages } = require('./salesAnalysis');
 
 let sendMessageFn = null;
 let denisPhoneFn = null;
@@ -66,15 +68,31 @@ async function checkAndSend() {
   if (hour === 10 && minute < 6 && day !== 6 && !alreadySent('followup')) {
     markSent('followup');
     try {
-      if (!getLeadsForFollowupFn) return;
-      const overdue = getLeadsForFollowupFn();
-      if (overdue.length > 0) {
-        const list = overdue.slice(0, 5).map(l =>
-          `• ${l.name || l.phone} — ${l.status || 'ממתין'}`
-        ).join('\n');
-        await sendMessageFn(phone,
-          `🔔 *פולואפ — ${overdue.length} לידים מחכים:*\n\n${list}\n\nכתוב "פולואפ ל[שם]" לקבל הודעה מוכנה`
-        );
+      const dueToday = getLeadsDueToday ? getLeadsDueToday() : [];
+      if (dueToday.length > 0) {
+        // Summary header
+        const header = '🔔 *פולואפ היום — ' + dueToday.length + ' לידים:*\n\n' +
+          dueToday.slice(0,5).map(l => {
+            const prob = l.closingProbability;
+            const icon = prob >= 70 ? '🔥' : prob >= 50 ? '⚡' : '🟡';
+            return icon + ' ' + (l.name || l.phone) + (prob ? ' (' + prob + '%)' : '') + ' — ' + (l.status || 'ממתין');
+          }).join('\n');
+        await sendMessageFn(phone, header);
+
+        // Ready message for top lead
+        const topLead = dueToday[0];
+        if (topLead && topLead.name) {
+          const days = topLead.lastMessageAt
+            ? Math.floor((Date.now() - new Date(topLead.lastMessageAt)) / 86400000)
+            : 3;
+          try {
+            const readyMsg = await writeFollowupMessages(topLead, topLead.status || 'follow_up', days);
+            await sendMessageFn(phone,
+              '✍️ *הודעה מוכנה ל' + topLead.name + ':*\n\n' + readyMsg +
+              '\n\n(העתק ושלח, או כתוב "פולואפ ל' + topLead.name + '" לגרסה אחרת)'
+            );
+          } catch {}
+        }
       }
     } catch (e) { console.error('[Proactive] Followup error:', e.message); }
     return;
