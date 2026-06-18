@@ -27,6 +27,22 @@ const SKILL_MAP = {
   'customer-research': ['מחקר לקוחות', 'customer research', 'persona', 'פרסונה'],
   'cro': ['המרה', 'conversion', 'CRO', 'אופטימיזציה'],
   'prospecting': ['פרוספקטינג', 'prospecting', 'חיפוש לידים', 'lead generation'],
+  // Video & Content
+  'video-editing': ['עריכת וידאו', 'video', 'ריל', 'reel', 'יוטיוב', 'youtube'],
+  'viral-content': ['ויראלי', 'viral', 'תוכן', 'content', 'פוסט', 'post'],
+  'content-creation': ['יצירת תוכן', 'content creation', 'יוצר תוכן'],
+  'infographic': ['אינפוגרפיק', 'infographic', 'ויזואל', 'visual'],
+  // Anthropic official skills
+  'anthropic-frontend-design': ['עיצוב', 'UI', 'design', 'CSS', 'ממשק'],
+  'anthropic-pptx': ['מצגת', 'powerpoint', 'slides', 'PPTX', 'שקף'],
+  'anthropic-docx': ['מסמך', 'word', 'docx', 'document'],
+  'anthropic-xlsx': ['אקסל', 'excel', 'spreadsheet', 'גיליון'],
+  // Extra marketing
+  'keith-landing-page-optimizer': ['אופטימיזציה', 'optimize', 'שיפור דף'],
+  'keith-brand-positioning': ['מיתוג', 'brand', 'מותג', 'positioning'],
+  'impeccable-impeccable': ['מושלם', 'perfect', 'impeccable'],
+  'prd-writer': ['PRD', 'מפרט מוצר', 'product requirement'],
+  'playwright-playwright-skill': ['playwright', 'automation', 'אוטומציה'],
   'product-marketing': ['שיווק מוצר', 'product marketing', 'positioning', 'מיצוב'],
 };
 
