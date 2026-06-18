@@ -122,6 +122,18 @@ async function handleDenisAdmin(phone, text) {
     return;
   }
 
+  // ═══ 1.5 LEAD FORM SHORTCUT ═══
+  if (/^טופס ליד|^תן לי טופס|^פתח טופס|^שלח טופס ליד/i.test(t)) {
+    const formUrl = (process.env.RAILWAY_PUBLIC_DOMAIN
+      ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN
+      : 'https://sapir-bot-production.up.railway.app') + '/lead-form';
+    await sendMessage(denisPhone,
+      '📋 *טופס הכנסת ליד:*\n\n' + formUrl +
+      '\n\nמלא אחרי כל שיחה — אלונה תקבל הכל ותתחיל פולואפ אוטומטי ⚡'
+    );
+    return;
+  }
+
   // ═══ 2. PHOTO SETUP ═══
   if (/^תמונה\s*\|/i.test(t)) {
     const photoUrl = t.split('|').slice(1).join('|').trim();
