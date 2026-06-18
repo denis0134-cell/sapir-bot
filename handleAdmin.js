@@ -157,15 +157,21 @@ async function handleDenisAdmin(phone, text) {
       return;
     }
     const leadName = targetLead.name || targetLead.phone;
-    await sendMessage(denisPhone, '📤 שולחת ל*' + leadName + '*:\n\n' + draft);
-    await sendMessage(targetLead.phone, draft);
-    upsertLead(targetLead.phone, {
-      status: 'follow_up',
-      lastFollowupAt: new Date().toISOString(),
-      followupCount: (targetLead.followupCount || 0) + 1
-    });
-    upsertLead(denisPhone, { lastFollowupDraft: null });
-    await sendMessage(denisPhone, '✅ נשלח! סטטוס עודכן לפולואפ.');
+    await sendMessage(denisPhone, '📤 שולחת ל*' + leadName + '* (' + targetLead.phone + '):\n\n' + draft);
+    try {
+      await sendMessage(targetLead.phone, draft);
+      upsertLead(targetLead.phone, {
+        status: 'follow_up',
+        lastFollowupAt: new Date().toISOString(),
+        followupCount: (targetLead.followupCount || 0) + 1
+      });
+      upsertLead(denisPhone, { lastFollowupDraft: null });
+      await sendMessage(denisPhone, '✅ נשלח בהצלחה!');
+    } catch (sendErr) {
+      await sendMessage(denisPhone,
+        '❌ שגיאה בשליחה ל-' + targetLead.phone + ':\n' + sendErr.message +
+        '\n\n💡 ייתכן שהלקוח לא פתח שיחה עם הבוט עדיין.');
+    }
     return;
   }
 
@@ -716,9 +722,12 @@ async function handleDenisAdmin(phone, text) {
           followupCount: (targetLead.followupCount || 0) + 1
         });
         upsertLead(denisPhone, { lastFollowupDraft: null });
-        await sendMessage(denisPhone, '✅ נשלח! עדכנתי את הסטטוס ל"פולואפ".');
+        await sendMessage(denisPhone, '✅ נשלח ל' + (targetLead.name || targetLead.phone) + '!');
       } catch (e) {
-        await sendMessage(denisPhone, '❌ שגיאה בשליחה: ' + e.message);
+        await sendMessage(denisPhone,
+          '❌ שגיאה בשליחה: ' + e.message +
+          '\n\n💡 הלקוח צריך לשלוח הודעה לבוט לפחות פעם אחת לפני שאפשר לפנות אליו.'
+        );
       }
       break;
     }
@@ -811,12 +820,35 @@ async function handleDenisAdmin(phone, text) {
       }
 
       // Long message with phone number = follow-up context
-      if (t.length > 80 && /05\d{8}|972\d{9}/.test(t)) {
+      const phoneInMsg = (t.match(/05\d{8}|972\d{9}/) || [])[0];
+      if (t.length > 80 && phoneInMsg) {
+        // Extract and normalize phone
+        const extracted = phoneInMsg.startsWith('972')
+          ? phoneInMsg
+          : '972' + phoneInMsg.replace(/^0/, '');
+        // Extract name (first word/s before the phone)
+        const beforePhone = t.substring(0, t.indexOf(phoneInMsg)).trim();
+        const nameGuess = beforePhone.split(/\s+/).slice(0,2).join(' ').replace(/[^א-תa-zA-Z\s]/g,'').trim();
+
+        // Save lead with phone
+        upsertLead(extracted, {
+          phone: extracted,
+          name: nameGuess || null,
+          lastNote: t,
+          status: 'follow_up',
+          lastMessageAt: new Date().toISOString()
+        });
+        upsertLead(denisPhone, { lastDiscussedPhone: extracted });
+
         await sendMessage(denisPhone, '⏳ כותבת פולואפ...');
         try {
           const followupMsg = await writeCustomFollowup(t + (lastCtx ? '\n\nהקשר: ' + lastCtx.substring(0, 400) : ''));
-          upsertLead(denisPhone, { lastRequest: t, lastResponse: followupMsg });
-          await sendMessage(denisPhone, followupMsg);
+          upsertLead(denisPhone, {
+            lastRequest: t,
+            lastResponse: followupMsg,
+            lastFollowupDraft: followupMsg
+          });
+          await sendMessage(denisPhone, followupMsg + '\n\n_לשלוח? כתוב: "תשלחי" או "שלחי ל' + (nameGuess || 'ליד') + '"_');
         } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
         return;
       }
