@@ -277,8 +277,69 @@ async function extractLeadData(originalText, analysis) {
   }
 }
 
+
+// ══════════════════════════════════════════════
+// 8. Generate full follow-up sequence for a lead
+// ══════════════════════════════════════════════
+const SEQUENCE_SYSTEM = `אתה כותב רצף פולואפים לוואטסאפ עבור דניס פול — איש מכירות High Ticket.
+
+הליד לא סגר. דניס רוצה לחמם אותו מחדש.
+
+חוקים מוחלטים:
+- עברית טבעית, מדוברת — לא רובוטית
+- כל הודעה עד 4 שורות
+- בלי מקף ארוך (לא —)
+- לא מתחנף, לא מתנצל
+- לא "רציתי לבדוק אם..." — ישיר ועניין
+- כל הודעה זווית שונה
+- מתאים לתוכניות ספיר זיסמן: ABM (13,900) או LDB (18,900)
+
+4 הודעות עם גישות שונות:
+1. יום 2: חזרה חמה — שאלה קצרה שפותחת שיחה מחדש
+2. יום 5: ערך / תוצאה — תוצאה אחת קונקרטית של לקוח דומה
+3. יום 9: טיפול בהתנגדות — נגיעה ישירה בחסם שציינת
+4. יום 14: הצעת מחיר / סגירה — הצעה סופית ברורה
+
+החזר JSON בלבד, ללא backticks:
+[
+  {"day": 2, "message": "...", "angle": "re-engagement"},
+  {"day": 5, "message": "...", "angle": "value"},
+  {"day": 9, "message": "...", "angle": "objection"},
+  {"day": 14, "message": "...", "angle": "final"}
+]`;
+
+async function generateFollowupSequence(leadInfo) {
+  const context = 'שם: ' + (leadInfo.name || 'לא ידוע') +
+    '\nתחום: ' + (leadInfo.profession || leadInfo.businessType || 'לא ידוע') +
+    '\nכאב: ' + (Array.isArray(leadInfo.painPoints) ? leadInfo.painPoints.join(', ') : (leadInfo.painPoints || 'לא ידוע')) +
+    '\nמטרה: ' + (leadInfo.goal || 'לא ידועה') +
+    '\nמה הוצע: ' + (leadInfo.proposalProgram || 'לא ידוע') + ' ₪' + (leadInfo.proposalPrice || '?') +
+    '\nהתנגדות: ' + (leadInfo.lastObjection || leadInfo.mainObjection || 'לא ידועה') +
+    '\nהערות: ' + (leadInfo.lastNote || '');
+
+  try {
+    const raw = await claudeCall(SEQUENCE_SYSTEM, context, 800);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const sequence = JSON.parse(clean);
+    // Add scheduledDate to each message
+    return sequence.map(function(msg) {
+      const d = new Date();
+      d.setDate(d.getDate() + msg.day);
+      return Object.assign({}, msg, {
+        scheduledDate: d.toISOString().split('T')[0],
+        sent: false,
+        sentAt: null
+      });
+    });
+  } catch (e) {
+    console.error('[Sequence] Error:', e.message);
+    return null;
+  }
+}
+
 module.exports = {
   extractLeadData,
+  generateFollowupSequence,
   analyzeSalesConversation,
   writeFollowupMessages,
   writeCustomFollowup,
