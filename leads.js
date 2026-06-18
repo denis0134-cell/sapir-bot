@@ -111,7 +111,34 @@ function getLeadsDueToday() {
   ).sort((a, b) => (b.closingProbability || 0) - (a.closingProbability || 0));
 }
 
-module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, getLeadsDueToday, markNotRelevant, findLeadsByName, getNamedLeads };
+
+function getLeadsWithPendingSequence() {
+  const db = readDB();
+  const DENIS = process.env.DENIS_PHONE || '972509698121';
+  const today = new Date().toISOString().split('T')[0];
+  const result = [];
+  Object.values(db).forEach(function(lead) {
+    if (lead.phone === DENIS) return;
+    if (!lead.followupSequence || !Array.isArray(lead.followupSequence)) return;
+    const pending = lead.followupSequence.filter(function(m) {
+      return !m.sent && m.scheduledDate && m.scheduledDate <= today;
+    });
+    if (pending.length > 0) result.push(lead);
+  });
+  return result;
+}
+
+function updateLeadSequenceMessage(phone, day, updates) {
+  const db = readDB();
+  if (!db[phone] || !db[phone].followupSequence) return;
+  const idx = db[phone].followupSequence.findIndex(function(m) { return m.day === day; });
+  if (idx >= 0) {
+    db[phone].followupSequence[idx] = Object.assign({}, db[phone].followupSequence[idx], updates);
+    writeDB(db);
+  }
+}
+
+module.exports = { getLead, upsertLead, addMessage, getConversation, getLeadsForFollowup, getLeadsDueToday, getLeadsWithPendingSequence, updateLeadSequenceMessage, markNotRelevant, findLeadsByName, getNamedLeads };
 
 // Find leads by partial name match
 function findLeadsByName(query) {
