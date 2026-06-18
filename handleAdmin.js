@@ -514,7 +514,7 @@ async function handleDenisAdmin(phone, text) {
     case 'SAVE_CHECKIN': {
       const pending = getPendingCheckin();
       if (!pending) {
-        await sendMessage(denisPhone, 'לא מצאתי שאלות פתוחות. שלח "צ'ק אין בוקר" או "צ'ק אין ערב" קודם.');
+        await sendMessage(denisPhone, `לא מצאתי שאלות פתוחות. שלח 'צ'ק אין בוקר' או 'צ'ק אין ערב' קודם.`);
         break;
       }
       // Parse numbered answers
