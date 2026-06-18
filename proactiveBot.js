@@ -3,7 +3,7 @@
  * אלונה יוזמת — שולחת הודעות ביוזמתה לדניס
  * בוקר: 8:00 | תזכורת פולואפ: 10:00 | ערב: 21:00
  */
-const { getMorningQuestions, getEveningQuestions, getGoalStatus, getTasks } = require('./personalData');
+const { getMorningQuestions, getEveningQuestions, getGoalStatus, getTasks, checkAccountability, generateLifeDashboard, getScoresText } = require('./personalData');
 
 let sendMessageFn = null;
 let denisPhoneFn = null;
@@ -33,6 +33,19 @@ async function checkAndSend() {
   if (!sendMessageFn || !denisPhoneFn) return;
   const { hour, minute, day } = israelTime();
   const phone = denisPhoneFn();
+
+  // 7:00 AM — Daily Dashboard + Accountability (every weekday)
+  if (hour === 7 && minute < 6 && day !== 6 && !alreadySent('dashboard')) {
+    markSent('dashboard');
+    try {
+      const dashboard = generateLifeDashboard();
+      const acc = checkAccountability();
+      let msg = dashboard;
+      if (acc.length > 0) msg += `\n\n⚠️ ${acc[0].message}`;
+      await sendMessageFn(phone, msg);
+    } catch (e) { console.error('[Proactive] Dashboard error:', e.message); }
+    return;
+  }
 
   // 8:00 AM — Morning check-in (weekdays only: 0=Sun...6=Sat, skip Sat=6)
   if (hour === 8 && minute < 6 && day !== 6 && !alreadySent('morning')) {
@@ -64,6 +77,16 @@ async function checkAndSend() {
         );
       }
     } catch (e) { console.error('[Proactive] Followup error:', e.message); }
+    return;
+  }
+
+  // Friday 17:00 — Weekly report
+  if (hour === 17 && minute < 6 && day === 5 && !alreadySent('weekly')) {
+    markSent('weekly');
+    try {
+      const { generateWeeklyReport } = require('./personalData');
+      await sendMessageFn(phone, generateWeeklyReport());
+    } catch (e) { console.error('[Proactive] Weekly report error:', e.message); }
     return;
   }
 
