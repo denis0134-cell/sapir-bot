@@ -5,12 +5,16 @@ const { generateAndSendProposal } = require('./proposalHelper');
 const { detectAdminIntent } = require('./adminIntent');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { addLesson, removeLesson, getAll, parseLessonFromText, formatMemoryForPrompt, rewriteWithCorrection } = require('./alonaMemory');
+const { buildSystemPrompt, addKnowledge, getKnowledge, loadContext } = require('./alonaContext');
 const axios = require('axios');
 
 const DENIS_PHONE = process.env.DENIS_PHONE || '972509698121';
-const ALONA_SYSTEM = `אתה אלונה, עוזרת AI חכמה, חמה ומצחיקה של דניס — איש מכירות בכיר.
-עונה תמיד בעברית, קצר ולעניין (עד 4 שורות), עם הומור קל כשמתאים.
-אל תציגי פקודות. אל תסבירי מה את. פשוט עזרי.`;
+// Dynamic system prompt built from context + memory
+function getAlonaSystem() {
+  const ctx = buildSystemPrompt();
+  const mem = formatMemoryForPrompt();
+  return ctx + mem;
+}
 
 // ── Claude API call helper ──
 async function claudeCall(system, userText, maxTokens = 300) {
@@ -139,6 +143,27 @@ async function handleDenisAdmin(denisPhone, text) {
   // ═══════════════════════════════════════════
   // 3.5 ALONA LEARNING SYSTEM
   // ═══════════════════════════════════════════
+
+  // ADD KNOWLEDGE (זכרי שאנחנו...)
+  if (/^(זכרי ש|שמרי ש|שמרי:|זכרי:|ידע חדש|הוסיפי לידע)/i.test(t)) {
+    const knowledge = t.replace(/^(זכרי ש|שמרי ש|שמרי:|זכרי:|ידע חדש|הוסיפי לידע)\s*/i, '').trim();
+    if (knowledge) {
+      const total = addKnowledge(knowledge);
+      await sendMessage(denisPhone, '🧠 שמרתי!\n"' + knowledge + '"\n\nסה"כ ' + total + ' פריטי ידע.');
+    }
+    return;
+  }
+
+  // SHOW KNOWLEDGE BASE
+  if (/^(מה יודעת|מה אני יודעת|הראי.*ידע|בסיס ידע|show.*knowledge)/i.test(t)) {
+    const items = getKnowledge();
+    if (!items.length) {
+      await sendMessage(denisPhone, 'עוד אין ידע שמור 📭\nאמור: "זכרי ש..." כדי ללמד אותי');
+    } else {
+      await sendMessage(denisPhone, '🧠 ידע שמור (' + items.length + '):\n\n' + items.map((k,i) => (i+1)+'. '+k.text).join('\n'));
+    }
+    return;
+  }
 
   // VIEW MEMORY
   if (/^(מה למדת|מה אתה זוכרת|הראי.*זיכרון|זיכרון שלך|כמה שיעורים)/i.test(t)) {
@@ -318,8 +343,7 @@ async function handleDenisAdmin(denisPhone, text) {
   // ═══════════════════════════════════════════
   try {
     const memory = formatMemoryForPrompt();
-    const systemWithMemory = ALONA_SYSTEM + memory;
-    const response = await claudeCall(systemWithMemory, textToAnalyze || t, 250);
+    const response = await claudeCall(getAlonaSystem(), textToAnalyze || t, 400);
     await sendMessage(denisPhone, response);
   } catch {
     await sendMessage(denisPhone, 'אני כאן דניס! 😊 במה אוכל לעזור?');
