@@ -79,6 +79,17 @@ function loadSkill(skillName) {
   return null;
 }
 
+function loadAlonaMemory() {
+  try {
+    const fs = require('fs'), path = require('path');
+    const memFile = path.join(__dirname, 'alona-memory.json');
+    if (fs.existsSync(memFile)) {
+      return JSON.parse(fs.readFileSync(memFile, 'utf8')) || [];
+    }
+  } catch {}
+  return [];
+}
+
 async function respondWithSkill(text, skillName) {
   const skillContent = loadSkill(skillName);
   if (!skillContent) return null;
