@@ -8,7 +8,7 @@ const { generateAndSendProposal } = require('./proposalHelper');
 const { addLesson, removeLesson, getAll, parseLessonFromText, formatMemoryForPrompt, rewriteWithCorrection } = require('./alonaMemory');
 const { buildSystemPrompt, addKnowledge, getKnowledge } = require('./alonaContext');
 const { detectIntent } = require('./intentDetector');
-const { analyzeSalesConversation, writeFollowupMessages, writeCustomFollowup, scoreLeads, adviseDecision, buildSalesScript, writeMarketingAsset } = require('./salesAnalysis');
+const { extractLeadData, analyzeSalesConversation, writeFollowupMessages, writeCustomFollowup, scoreLeads, adviseDecision, buildSalesScript, writeMarketingAsset } = require('./salesAnalysis');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport,
   logHealth, getHealthReport, addTask, completeTask, delayTask, getTasks, getTaskList,
