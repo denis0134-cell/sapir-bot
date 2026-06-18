@@ -60,6 +60,25 @@ async function handleDenisAdmin(phone, text) {
   if (!t) return;
   console.log(`[Admin] Denis: "${t.substring(0, 60)}"`);
 
+  // Load Denis's last conversation context (for "him/her/it" references)
+  const denisData = getLead(denisPhone) || {};
+  const lastCtx = denisData.lastRequest && denisData.lastRequest.length > 80
+    ? denisData.lastRequest.substring(0, 900)
+    : null;
+  const lastCtxSummary = denisData.lastResponse && denisData.lastResponse.length > 40
+    ? denisData.lastResponse.substring(0, 300)
+    : null;
+
+  // System prompt with conversation memory
+  function getSystemWithContext() {
+    let sys = getAlonaSystem();
+    if (lastCtx) {
+      sys += '\n\n═══ הקשר שיחה קודמת ═══\n' + lastCtx +
+        '\n\n(כשדניס אומר "איתו"/"איתה"/"הפולואפ"/"השיחה הזו" — זה ההקשר. השתמש בו.)';
+    }
+    return sys;
+  }
+
   // ═══ 1. STRUCTURED PIPE COMMANDS ═══
   if (/^הצעה\s*\|/i.test(t)) {
     const parts = t.split('|').map(p => p.trim());
@@ -250,7 +269,14 @@ async function handleDenisAdmin(phone, text) {
       try {
         const analysis = await analyzeSalesConversation(text);
         await splitAndSend(denisPhone, analysis);
-        upsertLead(denisPhone, { lastRequest: text, lastResponse: analysis });
+        // Extract name from analysis for "him/her" references
+        const nameMatch = analysis.match(/שם[^:：]*[:：]\s*([^\n]+)/);
+        const analyzedName = nameMatch ? nameMatch[1].trim().substring(0, 30) : null;
+        upsertLead(denisPhone, {
+          lastRequest: text,
+          lastResponse: analysis,
+          lastAnalyzedName: analyzedName
+        });
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
       break;
     }
@@ -258,18 +284,24 @@ async function handleDenisAdmin(phone, text) {
     case 'WRITE_FOLLOWUP': {
       await sendMessage(denisPhone, '⏳ כותבת...');
       try {
-        const msg = params.name
-          ? await (async () => {
-              const matches = findLeadsByName(params.name);
-              if (matches.length > 0) {
-                const lead = matches[0];
-                const days = lead.lastMessageAt ? Math.floor((Date.now() - new Date(lead.lastMessageAt)) / 86400000) : 3;
-                return writeFollowupMessages(lead, lead.status || 'לא ענה', days);
-              }
-              return writeCustomFollowup(t);
-            })()
-          : writeCustomFollowup(t);
-        await sendMessage(denisPhone, await msg);
+        let msg;
+        if (params.name) {
+          const matches = findLeadsByName(params.name);
+          if (matches.length > 0) {
+            const lead = matches[0];
+            const days = lead.lastMessageAt ? Math.floor((Date.now() - new Date(lead.lastMessageAt)) / 86400000) : 3;
+            msg = await writeFollowupMessages(lead, lead.status || 'לא ענה', days);
+          } else {
+            msg = await writeCustomFollowup(t);
+          }
+        } else if (lastCtx) {
+          // No name given — use last conversation context
+          const contextualRequest = t + '\n\n---\nהקשר השיחה שניתחנו:\n' + lastCtx;
+          msg = await writeCustomFollowup(contextualRequest);
+        } else {
+          msg = await writeCustomFollowup(t);
+        }
+        await sendMessage(denisPhone, msg);
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
       break;
     }
@@ -416,7 +448,8 @@ async function handleDenisAdmin(phone, text) {
     case 'DECISION_ADVICE': {
       await sendMessage(denisPhone, '⏳ חושבת...');
       try {
-        await splitAndSend(denisPhone, await adviseDecision(params.question || t));
+        const decisionQ = (params.question || t) + (lastCtx ? '\n\nהקשר: ' + lastCtx.substring(0, 300) : '');
+        await splitAndSend(denisPhone, await adviseDecision(decisionQ));
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
       break;
     }
@@ -579,9 +612,9 @@ async function handleDenisAdmin(phone, text) {
         }
       }
 
-      // General Claude response
+      // General Claude response — with conversation context
       try {
-        const response = await claudeCall(getAlonaSystem(), t, 500);
+        const response = await claudeCall(getSystemWithContext(), t, 600);
         upsertLead(denisPhone, { lastRequest: t, lastResponse: response });
         await sendMessage(denisPhone, response);
       } catch (e) { await sendMessage(denisPhone, '❌ שגיאה זמנית. נסה שוב.'); }
