@@ -2,13 +2,13 @@
  * handleAdmin.js — NLU-based routing v2
  */
 const { sendMessage } = require('./whatsapp');
-const { getLead, upsertLead, findLeadsByName, getNamedLeads, getLeadsForFollowup } = require('./leads');
+const { getLead, upsertLead, findLeadsByName, getNamedLeads, getLeadsForFollowup, getLeadsDueToday, getLeadsWithPendingSequence, updateLeadSequenceMessage } = require('./leads');
 const { summarizeFromHistory } = require('./claude');
 const { generateAndSendProposal } = require('./proposalHelper');
 const { addLesson, removeLesson, getAll, parseLessonFromText, formatMemoryForPrompt, rewriteWithCorrection } = require('./alonaMemory');
 const { buildSystemPrompt, addKnowledge, getKnowledge } = require('./alonaContext');
 const { detectIntent } = require('./intentDetector');
-const { extractLeadData, analyzeSalesConversation, writeFollowupMessages, writeCustomFollowup, scoreLeads, adviseDecision, buildSalesScript, writeMarketingAsset } = require('./salesAnalysis');
+const { extractLeadData, generateFollowupSequence, analyzeSalesConversation, writeFollowupMessages, writeCustomFollowup, scoreLeads, adviseDecision, buildSalesScript, writeMarketingAsset } = require('./salesAnalysis');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport,
   logHealth, getHealthReport, addTask, completeTask, delayTask, getTasks, getTaskList,
@@ -550,6 +550,72 @@ async function handleDenisAdmin(phone, text) {
 
     case 'LIST_GOALS': {
       await sendMessage(denisPhone, getGoalsText());
+      break;
+    }
+
+    case 'START_FOLLOWUP_SEQUENCE': {
+      const name = params.name;
+      const phone = params.value || (t.match(/05\d{8}|972\d{9}/) || [])[0];
+      if (!name && !phone) {
+        await sendMessage(denisPhone, 
+          '📋 שלח כך:\n"תתחילי פולואפ עם [שם] [נייד] — [תיאור קצר]"\n\nדוגמה:\n"פולואפ עם רחל 0501234567 — לא סגרה LDB, כאב: רוצה להגדיל הכנסה"');
+        break;
+      }
+
+      const cleanPhone = phone ? ('972' + String(phone).replace(/^972|^0/, '').replace(/[^0-9]/g, '')) : null;
+      const existing = name ? findLeadsByName(name) : [];
+      const leadPhone = (existing.length > 0 ? existing[0].phone : null) || cleanPhone || ('lead_' + Date.now());
+
+      // Build lead info
+      const leadInfo = {
+        ...(existing[0] || {}),
+        phone: leadPhone,
+        name: name || (existing[0] && existing[0].name) || 'ליד',
+        lastNote: params.context || t,
+        lastObjection: params.question || null,
+        proposalProgram: params.metric || null,
+        proposalPrice: params.amount || null,
+      };
+
+      await sendMessage(denisPhone, '⏳ מייצרת רצף הודעות...');
+      try {
+        const sequence = await generateFollowupSequence(leadInfo);
+        if (!sequence) { await sendMessage(denisPhone, '❌ שגיאה ביצירת הרצף'); break; }
+
+        upsertLead(leadPhone, {
+          name: leadInfo.name,
+          phone: leadPhone,
+          followupSequence: sequence,
+          status: 'follow_up',
+          lastNote: leadInfo.lastNote
+        });
+        upsertLead(denisPhone, { lastDiscussedPhone: leadPhone });
+
+        // Show Denis preview
+        let preview = '✅ *רצף הופעל ל' + leadInfo.name + ':*\n\n';
+        sequence.forEach(function(msg) {
+          const d = new Date(msg.scheduledDate);
+          const label = d.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' });
+          preview += '📅 ' + label + ' (' + msg.angle + '):\n';
+          preview += '"' + msg.message.substring(0, 80) + (msg.message.length > 80 ? '..."' : '"') + '\n\n';
+        });
+        preview += 'ההודעות ישלחו אוטומטית בתאריכים האלה.\nלעצור: "עצרי פולואפ ל' + leadInfo.name + '"';
+        await sendMessage(denisPhone, preview);
+
+      } catch(e) { await sendMessage(denisPhone, '❌ ' + e.message); }
+      break;
+    }
+
+    case 'STOP_FOLLOWUP_SEQUENCE': {
+      const name = params.name || t.replace(/.*עצרי פולואפ ל/i, '').trim();
+      const matches = findLeadsByName(name);
+      if (matches.length === 0) { await sendMessage(denisPhone, '❌ לא מצאתי ליד בשם "' + name + '"'); break; }
+      const lead = matches[0];
+      if (lead.followupSequence) {
+        lead.followupSequence.forEach(function(m) { m.stopped = true; });
+        upsertLead(lead.phone, { followupSequence: lead.followupSequence, status: 'paused' });
+      }
+      await sendMessage(denisPhone, '⏹ רצף הפולואפ ל' + lead.name + ' נעצר.');
       break;
     }
 
