@@ -2,91 +2,107 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 
-// Skills directory
 const SKILLS_DIR = path.join(__dirname, 'skills');
 
-// Skill map: keywords → skill file
 const SKILL_MAP = {
-  'copywriting': ['קופי', 'כתיבה שיווקית', 'copy', 'כותרת', 'headline', 'לנדינג', 'CTA', 'נוסח', 'טקסט שיווקי'],
-  'cold-email': ['מייל קר', 'cold email', 'אימייל קר', 'פנייה קרה', 'cold outreach'],
-  'emails': ['אימייל', 'מייל', 'email', 'ניוזלטר', 'newsletter', 'רצף מיילים'],
-  'sales-enablement': ['מכירות', 'sales', 'תסריט מכירה', 'sales script', 'הצגת מוצר', 'pitch'],
-  'pricing': ['תמחור', 'מחיר', 'pricing', 'כמה לגבות', 'חבילות מחיר', 'price point'],
-  'marketing-psychology': ['פסיכולוגיה', 'psychology', 'persuasion', 'שכנוע', 'הטיה', 'bias', 'טריגר'],
-  'ad-creative': ['מודעה', 'פרסומת', 'ad', 'פייסבוק', 'אינסטגרם', 'creative', 'advertising'],
-  'lead-magnets': ['ליד מגנט', 'lead magnet', 'מגנט לידים', 'freebie', 'הצעת ערך'],
-  'marketing-ideas': ['רעיונות שיווק', 'marketing ideas', 'אסטרטגיה', 'strategy', 'רעיון'],
-  'marketing-plan': ['תוכנית שיווק', 'marketing plan', 'תכנון', 'plan'],
-  'viral-content': ['ויראלי', 'viral', 'תוכן', 'content', 'פוסט', 'post', 'רשתות חברתיות'],
-  'competitor-profiling': ['מתחרה', 'competitor', 'ניתוח שוק', 'market analysis'],
-  'analytics': ['אנליטיקס', 'analytics', 'נתונים', 'data', 'מדדים', 'KPI'],
-  'ab-testing': ['A/B', 'בדיקה', 'testing', 'ניסוי'],
-  'marketing-psychology': ['פסיכולוגיה', 'psychology', 'persuasion'],
-  'launch': ['לאנץ', 'launch', 'השקה', 'שחרור מוצר'],
-  'seo-audit': ['SEO', 'גוגל', 'חיפוש', 'search engine'],
-  'customer-research': ['מחקר לקוחות', 'customer research', 'persona', 'פרסונה'],
-  'cro': ['המרה', 'conversion', 'CRO', 'אופטימיזציה'],
-  'prospecting': ['פרוספקטינג', 'prospecting', 'חיפוש לידים', 'lead generation'],
-  // Video & Content
-  'video-editing': ['עריכת וידאו', 'video', 'ריל', 'reel', 'יוטיוב', 'youtube'],
-  'viral-content': ['ויראלי', 'viral', 'תוכן', 'content', 'פוסט', 'post'],
-  'content-creation': ['יצירת תוכן', 'content creation', 'יוצר תוכן'],
-  'infographic': ['אינפוגרפיק', 'infographic', 'ויזואל', 'visual'],
-  // Anthropic official skills
-  'anthropic-frontend-design': ['עיצוב', 'UI', 'design', 'CSS', 'ממשק'],
-  'anthropic-pptx': ['מצגת', 'powerpoint', 'slides', 'PPTX', 'שקף'],
-  'anthropic-docx': ['מסמך', 'word', 'docx', 'document'],
-  'anthropic-xlsx': ['אקסל', 'excel', 'spreadsheet', 'גיליון'],
-  // Extra marketing
-  'keith-landing-page-optimizer': ['אופטימיזציה', 'optimize', 'שיפור דף'],
-  'keith-brand-positioning': ['מיתוג', 'brand', 'מותג', 'positioning'],
-  'impeccable-impeccable': ['מושלם', 'perfect', 'impeccable'],
-  'prd-writer': ['PRD', 'מפרט מוצר', 'product requirement'],
-  'playwright-playwright-skill': ['playwright', 'automation', 'אוטומציה'],
-  'product-marketing': ['שיווק מוצר', 'product marketing', 'positioning', 'מיצוב'],
+  // ── Ads & Content ──
+  'ad-creative':        ['מודעה', 'פרסומת', 'פייסבוק', 'אינסטגרם', 'ad', 'creative', 'advertising', 'קריאייטיב', 'banner'],
+  'claude-ads-daniel':  ['קמפיין פרסום', 'ads campaign', 'google ads', 'פרסום ממומן'],
+  'viral-content':      ['ויראלי', 'viral', 'פוסט', 'רילס', 'reels', 'סטורי', 'story', 'תוכן ברשתות'],
+  'content-creation':   ['יצירת תוכן', 'content plan', 'לוח תוכן', 'content calendar', 'יוצר תוכן'],
+  'infographic':        ['אינפוגרפיק', 'infographic', 'ויזואל', 'visual data'],
+  // ── Copywriting ──
+  'copywriting':        ['קופי', 'כתיבה שיווקית', 'copy', 'כותרת', 'headline', 'CTA', 'נוסח', 'טקסט שיווקי', 'לכתוב', 'תכתב'],
+  'keith-copywriter':   ['שכתב', 'copywriter', 'marketing copy'],
+  'copy-editing':       ['לערוך טקסט', 'שפר', 'copy edit', 'לתקן'],
+  'keith-landing-page-optimizer': ['שפר דף', 'אופטימיזציה לדף', 'landing optimization'],
+  'impeccable-impeccable': ['מושלם', 'perfect', 'impeccable', 'ברמה גבוהה'],
+  // ── Email & SMS ──
+  'emails':             ['אימייל', 'מייל', 'email', 'ניוזלטר', 'newsletter', 'רצף מיילים', 'email sequence'],
+  'cold-email':         ['מייל קר', 'cold email', 'פנייה קרה', 'cold outreach', 'ליצור קשר'],
+  'keith-email-marketer': ['קמפיין מייל', 'email campaign', 'drip'],
+  'sms':                ['SMS', 'הודעת טקסט', 'text message', 'הודעה קצרה'],
+  // ── Sales ──
+  'sales-enablement':   ['תסריט מכירה', 'sales script', 'pitch', 'מצגת מכירה', 'sales deck', 'objection', 'התנגדות', 'לסגור עסקה', 'מכירה', 'לסגור'],
+  'pricing':            ['תמחור', 'מחיר', 'pricing', 'כמה לגבות', 'חבילות מחיר', 'price point', 'מחירון'],
+  'prospecting':        ['פרוספקטינג', 'prospecting', 'חיפוש לידים', 'lead generation', 'למצוא לקוחות'],
+  'lead-magnets':       ['ליד מגנט', 'lead magnet', 'מגנט לידים', 'freebie', 'הצעת ערך חינמית'],
+  'popups':             ['פופאפ', 'popup', 'pop-up', 'חלונית'],
+  'signup':             ['דף הרשמה', 'signup', 'sign up', 'הרשמה', 'registration'],
+  // ── Strategy & Psychology ──
+  'marketing-psychology': ['פסיכולוגיה', 'psychology', 'persuasion', 'שכנוע', 'הטיה קוגניטיבית', 'bias', 'טריגר', 'urgency', 'דחיפות', 'social proof'],
+  'marketing-plan':     ['תוכנית שיווק', 'marketing plan', 'אסטרטגיה שיווקית', 'marketing strategy'],
+  'marketing-ideas':    ['רעיונות שיווק', 'marketing ideas', 'רעיון לקמפיין', 'campaign idea'],
+  'customer-research':  ['מחקר לקוחות', 'customer research', 'persona', 'פרסונה', 'buyer persona', 'ICP'],
+  'competitor-profiling': ['מתחרה', 'competitor', 'ניתוח שוק', 'market analysis', 'competition', 'מתחרים'],
+  'keith-brand-positioning': ['מיתוג', 'brand', 'מותג', 'positioning', 'מיצוב', 'brand identity'],
+  // ── Analytics & Optimization ──
+  'analytics':          ['אנליטיקס', 'analytics', 'נתונים', 'data', 'מדדים', 'KPI', 'metrics', 'דוח', 'report'],
+  'ab-testing':         ['A/B', 'A/B testing', 'בדיקת גרסאות', 'split test'],
+  'cro':                ['המרה', 'conversion', 'CRO', 'conversion rate', 'אופטימיזציית המרות'],
+  'seo-audit':          ['SEO audit', 'ביקורת SEO', 'בדיקת SEO', 'seo check'],
+  'ai-seo':             ['SEO', 'גוגל', 'חיפוש אורגני', 'organic search', 'keyword', 'מילות מפתח'],
+  'keith-seo-strategist': ['אסטרטגיית SEO', 'seo strategy', 'בניית קישורים'],
+  // ── Launch & Product ──
+  'launch':             ['לאנץ', 'launch', 'השקה', 'שחרור מוצר', 'product launch', 'לשחרר'],
+  'product-marketing':  ['שיווק מוצר', 'product marketing', 'product positioning', 'go to market', 'GTM'],
+  'prd-writer':         ['PRD', 'מפרט מוצר', 'product requirement', 'requirements doc'],
+  // ── Video & Design ──
+  'video-editing':      ['עריכת וידאו', 'video edit', 'ריל', 'reel', 'video production'],
+  'anthropic-frontend-design': ['עיצוב', 'UI', 'design', 'CSS', 'ממשק', 'frontend', 'UX'],
+  'anthropic-algorithmic-art': ['גרפיקה', 'art', 'אמנות', 'generative', 'illustration'],
+  'color-expert':       ['צבעים', 'color', 'פלטת צבעים', 'color palette', 'brand colors'],
+  'infographic':        ['אינפוגרפיק', 'infographic', 'data visualization'],
+  // ── Documents ──
+  'anthropic-pptx':     ['מצגת', 'powerpoint', 'slides', 'PPTX', 'שקף', 'presentation'],
+  'anthropic-docx':     ['מסמך', 'word', 'docx', 'document', 'Word'],
+  'anthropic-xlsx':     ['אקסל', 'excel', 'spreadsheet', 'גיליון', 'XLSX'],
+  'anthropic-pdf':      ['PDF', 'pdf'],
 };
 
-// Detect which skill to use
 function detectSkill(text) {
-  const lowerText = text.toLowerCase();
+  if (!text) return null;
+  const lower = text.toLowerCase();
   for (const [skill, keywords] of Object.entries(SKILL_MAP)) {
-    if (keywords.some(kw => lowerText.includes(kw.toLowerCase()))) {
+    if (keywords.some(kw => lower.includes(kw.toLowerCase()))) {
       return skill;
     }
   }
   return null;
 }
 
-// Load skill content
 function loadSkill(skillName) {
   const skillPath = path.join(SKILLS_DIR, skillName + '.md');
   if (fs.existsSync(skillPath)) {
-    const content = fs.readFileSync(skillPath, 'utf8');
-    // Return first 3000 chars to stay within token limits
-    return content.substring(0, 3000);
+    return fs.readFileSync(skillPath, 'utf8').substring(0, 4000);
   }
   return null;
 }
 
-// Generate response using skill
 async function respondWithSkill(text, skillName) {
   const skillContent = loadSkill(skillName);
   if (!skillContent) return null;
 
-  const system = `אתה אלונה, עוזרת AI חכמה של דניס — איש מכירות בכיר.
-אתה מומחית מלאה ב: ${skillName.replace(/-/g, ' ')}.
+  const skillLabel = skillName.replace(/-/g, ' ').replace('keith ', '').replace('anthropic ', '');
 
-הנה הידע המקצועי שלך:
+  const system = `אתה אלונה, עוזרת AI מקצועית של דניס — איש מכירות בכיר במכללת ספיר זיסמן.
+יש לך מומחיות מלאה ב-${skillLabel}.
+
+הידע המקצועי שלך:
 ---
 ${skillContent}
 ---
 
-ענה בעברית, קצר וברור (עד 5 שורות), כמו יועצת מקצועית חמה.
-אם צריך יותר פרטים — שאל שאלה אחת ספציפית.`;
+כללים:
+- ענה בעברית בלבד
+- היה ספציפי ומעשי — תן פלט שדניס יכול להשתמש בו מיד
+- אם מבקשים לכתוב משהו — כתוב אותו ממש, לא רק עצות
+- סגנון חם ומקצועי
+- אורך: עד 10 שורות (אלא אם מבקשים יותר)`;
 
   const response = await axios.post('https://api.anthropic.com/v1/messages', {
     model: 'claude-sonnet-4-6',
-    max_tokens: 400,
+    max_tokens: 800,
     system,
     messages: [{ role: 'user', content: text }]
   }, {
