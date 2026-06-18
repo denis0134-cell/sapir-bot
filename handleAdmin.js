@@ -4,7 +4,7 @@ const { summarizeClient, summarizeFromHistory } = require('./claude');
 const { generateAndSendProposal } = require('./proposalHelper');
 const { detectAdminIntent } = require('./adminIntent');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
-const { addLesson, parseLessonFromText, formatMemoryForPrompt } = require('./alonaMemory');
+const { addLesson, removeLesson, getAll, parseLessonFromText, formatMemoryForPrompt, rewriteWithCorrection } = require('./alonaMemory');
 const axios = require('axios');
 
 const DENIS_PHONE = process.env.DENIS_PHONE || '972509698121';
@@ -137,16 +137,75 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // ═══════════════════════════════════════════
-  // 3.5 CORRECTION / LEARNING
+  // 3.5 ALONA LEARNING SYSTEM
   // ═══════════════════════════════════════════
-  const correctionWords = ['טעית', 'לא מה שרציתי', 'זה לא נכון', 'תתקני', 'תתקן', 'זה לא מה שביקשתי', 'לא ביקשתי', 'לא הבנת', 'טעות', 'שגית', 'בפעם הבאה', 'למדי'];
+
+  // VIEW MEMORY
+  if (/^(מה למדת|מה אתה זוכרת|הראי.*זיכרון|זיכרון שלך|כמה שיעורים)/i.test(t)) {
+    const all = getAll();
+    if (!all.length) {
+      await sendMessage(denisPhone, 'עוד לא למדתי כלום 😅\nתגיד לי מה לשפר!');
+    } else {
+      const list = all.map((l, i) => `${i+1}. ${l}`).join('\n');
+      await sendMessage(denisPhone, `📚 למדתי ${all.length} שיעורים:\n\n${list}`);
+    }
+    return;
+  }
+
+  // DELETE LESSON
+  if (/^מחק.*שיעור|^מחקי.*שיעור/i.test(t)) {
+    const numMatch = t.match(/\d+/);
+    if (numMatch) {
+      const removed = removeLesson(numMatch[0]);
+      await sendMessage(denisPhone, removed
+        ? '🗑️ מחקתי: "' + removed + '"'
+        : '❌ לא מצאתי שיעור במספר הזה');
+    } else {
+      await sendMessage(denisPhone, 'כתוב: מחקי שיעור | [מספר]');
+    }
+    return;
+  }
+
+  // TEACH DIRECTLY: למדי | [כלל]
+  if (/^למדי\s*\|/i.test(t)) {
+    const lesson = t.split('|').slice(1).join('|').trim();
+    if (lesson) {
+      const result = addLesson(lesson);
+      await sendMessage(denisPhone, '✅ למדתי ושמרתי!\n\n📝 "' + lesson + '"\n\nסה"כ ' + result.total + ' שיעורים בזיכרון.');
+    } else {
+      await sendMessage(denisPhone, 'כתוב: למדי | [מה ללמוד]');
+    }
+    return;
+  }
+
+  // CORRECTION + REWRITE: זה לא מה שרציתי — [מה רצית]
+  if (/זה לא מה שרציתי|לא ביקשתי כזה|לא זה מה שביקשתי/i.test(t)) {
+    const desired = t.replace(/.*(?:רציתי|ביקשתי).*?[-—]\s*/i, '').trim();
+    const denisData = getLead(denisPhone) || {};
+    const lastContext = denisData.lastRequest || '';
+    const lastResponse = denisData.lastResponse || '';
+    if (desired && lastContext) {
+      const newResponse = await rewriteWithCorrection(lastResponse, desired, lastContext);
+      if (newResponse) {
+        const lesson = await parseLessonFromText(t);
+        if (lesson) addLesson(lesson);
+        upsertLead(denisPhone, { lastResponse: newResponse });
+        await sendMessage(denisPhone, '🔄 כתבתי מחדש:\n\n' + newResponse);
+        if (lesson) await sendMessage(denisPhone, '\n📝 למדתי: "' + lesson + '"');
+        return;
+      }
+    }
+  }
+
+  // GENERAL CORRECTION
+  const correctionWords = ['טעית', 'טעות', 'שגית', 'לא הבנת', 'תתקני', 'תתקן', 'בפעם הבאה', 'אל תשאל', 'אל תשאלי', 'תכתב מיד', 'תכתבי מיד', 'ללא שאלות'];
   if (correctionWords.some(w => t.includes(w))) {
     const lesson = await parseLessonFromText(t);
     if (lesson) {
-      addLesson(lesson);
-      await sendMessage(denisPhone, `✅ הבנתי ולמדתי!\n\n📝 "${lesson}"\n\nלא אחזור על זה.`);
+      const result = addLesson(lesson);
+      await sendMessage(denisPhone, '✅ הבנתי ולמדתי!\n\n📝 "' + lesson + '"\n\nלא אחזור על זה. (שיעור ' + result.total + ')');
     } else {
-      await sendMessage(denisPhone, 'מצטערת 😔 הסבירי לי מה הטעות ומה תרצה אחרת, ואזכור לעתיד.');
+      await sendMessage(denisPhone, 'מצטערת 😔 הסבירי לי בדיוק מה הטעות ומה תרצה, ואזכור.');
     }
     return;
   }
@@ -172,6 +231,7 @@ async function handleDenisAdmin(denisPhone, text) {
     try {
       const skillResponse = await respondWithSkill(textToAnalyze, detectedSkill);
       if (skillResponse && skillResponse.length > 20) {
+        upsertLead(denisPhone, { lastRequest: textToAnalyze, lastResponse: skillResponse });
         await sendMessage(denisPhone, skillResponse);
         return;
       }
