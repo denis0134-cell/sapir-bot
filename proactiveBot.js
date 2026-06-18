@@ -4,7 +4,7 @@
  * בוקר: 8:00 | תזכורת פולואפ: 10:00 | ערב: 21:00
  */
 const { getMorningQuestions, getEveningQuestions, getGoalStatus, getTasks, checkAccountability, generateLifeDashboard, getScoresText } = require('./personalData');
-const { getLeadsDueToday } = require('./leads');
+const { getLeadsDueToday, getLeadsWithPendingSequence, updateLeadSequenceMessage, upsertLead } = require('./leads');
 const { writeFollowupMessages } = require('./salesAnalysis');
 
 let sendMessageFn = null;
@@ -121,12 +121,42 @@ async function checkAndSend() {
   }
 }
 
+async function sendSequenceMessages() {
+  if (!sendMessageFn || !denisPhoneFn) return;
+  const DENIS = denisPhoneFn();
+  try {
+    const leads = getLeadsWithPendingSequence ? getLeadsWithPendingSequence() : [];
+    for (const lead of leads) {
+      const pending = (lead.followupSequence || []).filter(function(m) {
+        return !m.sent && !m.stopped && m.scheduledDate <= new Date().toISOString().split('T')[0];
+      });
+      for (const msg of pending) {
+        try {
+          await sendMessageFn(lead.phone, msg.message);
+          updateLeadSequenceMessage(lead.phone, msg.day, { sent: true, sentAt: new Date().toISOString() });
+          console.log('[Sequence] Sent day-' + msg.day + ' to ' + lead.name);
+          await sendMessageFn(DENIS,
+            '✅ שלחתי פולואפ ל*' + lead.name + '* (הודעה ' + msg.day + '):\n\n"' +
+            msg.message.substring(0, 100) + '"'
+          );
+          await new Promise(function(r) { setTimeout(r, 2000); });
+        } catch (e) {
+          console.error('[Sequence] Send error:', e.message);
+        }
+      }
+    }
+  } catch (e) { console.error('[Sequence] Error:', e.message); }
+}
+
 function startProactiveScheduler(sendMsg, getPhone, getFollowups) {
   sendMessageFn = sendMsg;
   denisPhoneFn = getPhone;
   getLeadsForFollowupFn = getFollowups;
 
-  setInterval(checkAndSend, 5 * 60 * 1000); // check every 5 minutes
+  setInterval(checkAndSend, 5 * 60 * 1000);
+  // Every 30 minutes: send pending follow-up sequence messages
+  setInterval(sendSequenceMessages, 30 * 60 * 1000);
+  sendSequenceMessages(); // run once on startup
   console.log('[ProactiveBot] Scheduler started — morning 8:00, followups 10:00, evening 21:00');
 }
 
