@@ -1,369 +1,248 @@
-const { sendMessage, notifyDenis } = require('./whatsapp');
-const { detectSkill, respondWithSkill } = require('./skillRouter');
+const { sendMessage } = require('./whatsapp');
 const { getLead, upsertLead, findLeadsByName, getNamedLeads } = require('./leads');
 const { summarizeClient, summarizeFromHistory } = require('./claude');
 const { generateAndSendProposal } = require('./proposalHelper');
 const { detectAdminIntent } = require('./adminIntent');
-const { parseNaturalCommand } = require('./commandParser');
+const { detectSkill, respondWithSkill } = require('./skillRouter');
+const axios = require('axios');
 
+const DENIS_PHONE = process.env.DENIS_PHONE || '972509698121';
+const ALONA_SYSTEM = `אתה אלונה, עוזרת AI חכמה, חמה ומצחיקה של דניס — איש מכירות בכיר.
+עונה תמיד בעברית, קצר ולעניין (עד 4 שורות), עם הומור קל כשמתאים.
+אל תציגי פקודות. אל תסבירי מה את. פשוט עזרי.`;
+
+// ── Claude API call helper ──
+async function claudeCall(system, userText, maxTokens = 300) {
+  const resp = await axios.post('https://api.anthropic.com/v1/messages', {
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: 'user', content: userText }]
+  }, {
+    headers: {
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'Content-Type': 'application/json'
+    }
+  });
+  return resp.data.content[0].text.trim();
+}
+
+// ── Main handler ──
 async function handleDenisAdmin(denisPhone, text) {
+  const t = text.trim();
 
-  // ── Denis photo update: תמונה | [URL or Instagram URL] ──
-  if (/תמונה[^|]*\|/.test(text) || text.startsWith('תמונה |') || text.startsWith('עדכן תמונה')) {
-    const rawUrl = text.split('|').slice(1).join('|').trim();
-    if (!rawUrl.startsWith('http')) {
-      await sendMessage(denisPhone, '❌ שלח URL. דוגמה: תמונה | https://instagram.com/username');
-      return;
-    }
+  // ═══════════════════════════════════════════
+  // 1. STRUCTURED COMMANDS (pipe-separated)
+  // ═══════════════════════════════════════════
+  const parts = t.split('|').map(p => p.trim());
 
-    let photoUrl = rawUrl;
-
-    // If it's an Instagram profile page — try to extract photo
-    if (rawUrl.includes('instagram.com')) {
-      await sendMessage(denisPhone, '⏳ מחלץ תמונה מאינסטגרם...');
-      const { fetchSocialPhoto } = require('./socialPhoto');
-      const extracted = await fetchSocialPhoto(rawUrl);
-      if (extracted) {
-        photoUrl = extracted;
-        console.log('[Admin] Extracted Instagram photo:', photoUrl.substring(0, 80));
-      } else {
-        await sendMessage(denisPhone, '⚠️ לא הצלחתי לחלץ תמונה אוטומטית.\n\nשלח URL ישיר לתמונה שלך (לדוגמה מ-Instagram → לחיצה ארוכה על התמונה → העתק קישור).');
-        return;
-      }
-    }
-
-    upsertLead(denisPhone, { myPhotoUrl: photoUrl });
-    await sendMessage(denisPhone, '✅ תמונה נשמרה! תופיע בכל ההצעות הבאות 📸');
-    return;
-  }
-
-  // ── Form command: deploy client form and return URL ──
-  if (/טופס|שלח.*טופס|form/i.test(text)) {
-    await sendMessage(denisPhone, '⏳ מכין טופס...');
-    try {
-      const fs = require('fs');
-      const path = require('path');
-      const axios = require('axios');
-      const crypto = require('crypto');
-      
-      const formPath = path.join(__dirname, 'client-form.html');
-      const htmlBytes = fs.readFileSync(formPath);
-      const sha1 = crypto.createHash('sha1').update(htmlBytes).digest('hex');
-      const token = process.env.NETLIFY_TOKEN;
-      const siteName = 'sapir-client-form';
-      
-      // Check if site exists, create if not
-      let siteId;
-      try {
-        const existing = await axios.get('https://api.netlify.com/api/v1/sites?filter=owner&name=' + siteName, {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        const found = existing.data.find(s => s.name === siteName);
-        siteId = found ? found.id : null;
-      } catch {}
-      
-      if (!siteId) {
-        const siteRes = await axios.post('https://api.netlify.com/api/v1/sites', { name: siteName }, {
-          headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
-        });
-        siteId = siteRes.data.id;
-      }
-      
-      const deployRes = await axios.post('https://api.netlify.com/api/v1/sites/' + siteId + '/deploys',
-        { files: { '/index.html': sha1 } },
-        { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } }
-      );
-      
-      await axios.put('https://api.netlify.com/api/v1/deploys/' + deployRes.data.id + '/files/index.html',
-        htmlBytes,
-        { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' }, maxBodyLength: Infinity }
-      );
-      
-      const formUrl = 'https://' + siteName + '.netlify.app';
-      await sendMessage(denisPhone, '📋 הנה הטופס:\n\n' + formUrl + '\n\nמלא ← לחץ "שלח לבוט" ← הבוט יבנה דף נחיתה ⚡');
-    } catch (err) {
-      console.error('[Form] Deploy error:', err.message);
-      await sendMessage(denisPhone, '❌ שגיאה בפרסום הטופס: ' + err.message);
-    }
-    return;
-  }
-
-  // ── Formatted command: הצעה | number | program | price ──
-  const parts = text.split('|').map(p => p.trim());
+  // הצעה | phone | program | price
   if (parts[0] === 'הצעה' && parts.length >= 4) {
-    const leadPhone = parts[1];
-    const program = parts[2];
-    const rawPrice = parts[3];
-    const price = rawPrice.replace(/[^0-9]/g, '');
-
-    // Parse optional extra fields
     const extras = {};
     parts.slice(4).forEach(p => {
       const [k, ...v] = p.split('=');
       if (k && v.length) extras[k.trim()] = v.join('=').trim();
     });
-    if (extras.name || extras.prof) {
-      upsertLead(leadPhone, {
-        name: extras.name,
-        profession: extras.prof,
-        currentRevenue: extras.rev,
-        goal: extras.goal,
-        lastMessageAt: new Date().toISOString()
-      });
-    }
-
-    await sendMessage(denisPhone, `⏳ מייצר הצעה ל-${leadPhone}...`);
+    upsertLead(parts[1], {
+      name: extras.name, profession: extras.prof,
+      currentRevenue: extras.rev, targetRevenue: extras.target,
+      goal: extras.goal, socialUrl: extras.social,
+      lastMessageAt: new Date().toISOString()
+    });
     try {
-      const url = await generateAndSendProposal(leadPhone, program.toUpperCase().replace(' ', ''), price);
-      await sendMessage(denisPhone, `✅ הצעה נשלחה ל-${leadPhone}\n${url}`);
-    } catch (err) {
-      await sendMessage(denisPhone, `❌ שגיאה: ${err.message}`);
-    }
+      const url = await generateAndSendProposal(parts[1], parts[2].toUpperCase(), parts[3]);
+      await sendMessage(denisPhone, `✅ הצעה נשלחה ל-${parts[1]}\n${url}`);
+    } catch (e) { await sendMessage(denisPhone, `❌ שגיאה: ${e.message}`); }
     return;
   }
 
-  // ── Summary command ──
+  // סיכום | phone
   if (parts[0] === 'סיכום' && parts.length === 2) {
     const lead = getLead(parts[1]);
-    if (!lead) { await sendMessage(denisPhone, `❌ לא נמצא ליד ${parts[1]}`); return; }
-    await sendMessage(denisPhone, `⏳ מושך סיכום...`);
-    const summary = await summarizeFromHistory(lead);
+    if (!lead) { await sendMessage(denisPhone, `❌ לא נמצא ${parts[1]}`); return; }
     upsertLead(denisPhone, { lastDiscussedPhone: lead.phone });
-    await sendMessage(denisPhone, summary);
+    await sendMessage(denisPhone, await summarizeFromHistory(lead));
     return;
   }
 
-  // ── Landing Page command: דף נחיתה | phone | businessName | ... ──
+  // דף נחיתה | phone | name | ...
   if (parts[0] === 'דף נחיתה' && parts.length >= 3) {
+    const extras = {};
+    parts.slice(3).forEach(p => {
+      const [k, ...v] = p.split('=');
+      if (k && v.length) extras[k.trim()] = v.join('=').trim();
+    });
     await sendMessage(denisPhone, '⏳ בונה דף נחיתה... (30-60 שניות)');
     try {
       const { generateLandingPage } = require('./landingPageBuilder');
       const { deployProposal } = require('./netlify');
+      const html = await generateLandingPage({ businessName: parts[2], phone: parts[1], ...extras });
+      const url = await deployProposal(html, parts[2]);
+      await sendMessage(denisPhone, `✅ דף נחיתה מוכן!\n${url}`);
+    } catch (e) { await sendMessage(denisPhone, `❌ ${e.message}`); }
+    return;
+  }
 
-      const phone = parts[1];
-      const businessName = parts[2];
-
-      // Parse all optional params
-      const extras = {};
-      parts.slice(3).forEach(p => {
-        const [k, ...v] = p.split('=');
-        if (k && v.length) extras[k.trim()] = v.join('=').trim();
-      });
-
-      const businessData = {
-        businessName,
-        ownerName: extras.owner || '',
-        botDescription: extras.desc || 'בוט WhatsApp חכם לניהול לקוחות',
-        targetAudience: extras.audience || 'בעלי עסקים קטנים ובינוניים',
-        features: extras.features ? extras.features.split(',').map(f=>f.trim()) : [],
-        phone: phone,
-        price: extras.price || '',
-        calendarLink: extras.calendar || process.env.CALENDAR_LINK,
-        results: extras.results ? extras.results.split(',').map(r=>r.trim()) : [],
-        painPoints: extras.pains ? extras.pains.split(',').map(p=>p.trim()) : [],
-        chatMockup: { userMsg: extras.msgUser || '', botMsg: extras.msgBot || '' }
-      };
-
-      const html = await generateLandingPage(businessData);
-      const url = await deployProposal(html, businessName);
-
-      await sendMessage(denisPhone, '✅ דף נחיתה מוכן!\n\n' + url + '\n\nשלח ללקוח 🚀');
-    } catch (err) {
-      console.error('[LandingPage] Error:', err.message);
-      await sendMessage(denisPhone, '❌ שגיאה: ' + err.message);
+  // ═══════════════════════════════════════════
+  // 2. PHOTO & SETUP COMMANDS
+  // ═══════════════════════════════════════════
+  if (/^(תמונה|עדכן תמונה|תמונה שלי)/i.test(t) && t.includes('|')) {
+    const photoUrl = t.split('|').slice(1).join('|').trim();
+    if (!photoUrl.startsWith('http') && !photoUrl.startsWith('data:')) {
+      await sendMessage(denisPhone, '❌ שלח URL תמונה. דוגמה: תמונה | https://...');
+      return;
     }
+    upsertLead(denisPhone, { myPhotoUrl: photoUrl });
+    await sendMessage(denisPhone, '✅ תמונה נשמרה! תופיע בכל הצעה 📸');
     return;
   }
 
-  // ── Alona self-recognition — responds when called by name ──
-  if (/^אלונה[!?.,\s]*$|^היי אלונה|^שלום אלונה|^אלונה,/i.test(text)) {
-    const replies = [
-      'כן דניס, אני כאן! 😄\nאלונה לשירותך — מה עושים?',
-      'קוראת לי? 👋\nאלונה כאן, מוכנה לפעולה!\nבמה אוכל לעזור?',
-      'הנה אני! 🙋‍♀️\nאלונה נוכחת ומוכנה.\nמה צריך?',
-      'אני אלונה, העוזרת שלך 💪\nתמיד כאן. מה יש?'
-    ];
-    await sendMessage(denisPhone, replies[Math.floor(Math.random() * replies.length)]);
+  // ═══════════════════════════════════════════
+  // 3. FORM COMMAND
+  // ═══════════════════════════════════════════
+  if (/טופס|שלח.*טופס|form/i.test(t)) {
+    await sendMessage(denisPhone, '⏳ מכין טופס...');
+    try {
+      const fs = require('fs'), path = require('path'), axiosLib = require('axios'), crypto = require('crypto');
+      const formPath = path.join(__dirname, 'client-form.html');
+      const htmlBytes = fs.readFileSync(formPath);
+      const sha1 = crypto.createHash('sha1').update(htmlBytes).digest('hex');
+      const token = process.env.NETLIFY_TOKEN;
+      const siteName = 'sapir-client-form';
+      let siteId;
+      try {
+        const existing = await axiosLib.get('https://api.netlify.com/api/v1/sites?filter=owner', {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        const found = existing.data.find(s => s.name === siteName);
+        siteId = found ? found.id : null;
+      } catch {}
+      if (!siteId) {
+        const siteRes = await axiosLib.post('https://api.netlify.com/api/v1/sites', { name: siteName }, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        siteId = siteRes.data.id;
+      }
+      const deployRes = await axiosLib.post(`https://api.netlify.com/api/v1/sites/${siteId}/deploys`,
+        { files: { '/index.html': sha1 } },
+        { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } });
+      await axiosLib.put(`https://api.netlify.com/api/v1/deploys/${deployRes.data.id}/files/index.html`,
+        htmlBytes, { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' }, maxBodyLength: Infinity });
+      const formUrl = `https://${siteName}.netlify.app`;
+      await sendMessage(denisPhone, `📋 הנה הטופס:\n\n${formUrl}\n\nמלא ← לחץ "שלח לבוט" ← הבוט יבנה הצעה ⚡`);
+    } catch (e) { await sendMessage(denisPhone, `❌ שגיאה: ${e.message}`); }
     return;
   }
 
-  // ── All other messages: use Claude to detect intent ──
+  // ═══════════════════════════════════════════
+  // 4. SKILL-BASED TASK DETECTION (PRIORITY)
+  // ═══════════════════════════════════════════
+  // Remove "אלונה" prefix if present (calling by name before a task)
+  const textWithoutName = t.replace(/^אלונה[,،\s]*/i, '').trim();
+  const textToAnalyze = textWithoutName || t;
+
+  // Check if it's a task request (contains action verb)
+  const taskVerbs = ['תכתב', 'תכתבי', 'כתב', 'כתבי', 'תייצר', 'צור', 'צרי', 'תיצור', 'עזר', 'עזרי',
+    'תעזר', 'תעזרי', 'בנה', 'בני', 'תבנה', 'תבני', 'תספר', 'ספר', 'תציע', 'הצע',
+    'תכין', 'תכיני', 'הכן', 'הכיני', 'תשלח', 'שלח', 'תנסח', 'נסח', 'תמליץ', 'המלץ',
+    'תסביר', 'הסבר', 'תנתח', 'נתח', 'תחשוב', 'חשוב', 'תציג', 'הצג'];
+
+  const hasTaskVerb = taskVerbs.some(v => textToAnalyze.startsWith(v) || textToAnalyze.includes(' ' + v + ' '));
+  const detectedSkill = detectSkill(textToAnalyze) || detectSkill(t);
+
+  if (detectedSkill) {
+    console.log(`[Admin] Skill detected: ${detectedSkill} for: "${textToAnalyze.substring(0, 40)}"`);
+    try {
+      const skillResponse = await respondWithSkill(textToAnalyze, detectedSkill);
+      if (skillResponse && skillResponse.length > 20) {
+        await sendMessage(denisPhone, skillResponse);
+        return;
+      }
+    } catch (skillErr) { console.error('[Skill] Error:', skillErr.message); }
+  }
+
+  // ═══════════════════════════════════════════
+  // 5. CLIENT OPERATIONS (lookup, update, summarize)
+  // ═══════════════════════════════════════════
   const denisData = getLead(denisPhone) || {};
   const lastPhone = denisData.lastDiscussedPhone;
+
+  // Update last client (add phone/info)
+  const isUpdate = /^(תוסיפ|עדכנ|הוסיפ)/i.test(textToAnalyze);
+  if (isUpdate) {
+    const targetPhone = lastPhone;
+    const phoneMatch = textToAnalyze.match(/0[5][0-9]{8}/);
+    if (phoneMatch && targetPhone) {
+      const newPhone = '972' + phoneMatch[0].slice(1);
+      upsertLead(targetPhone, { phone: newPhone });
+      await sendMessage(denisPhone, `✅ עודכן: 📱 ${newPhone}`);
+      return;
+    }
+  }
+
+  // Client name lookup
   const namedLeads = getNamedLeads();
-
-  const intent = await detectAdminIntent(text, lastPhone, namedLeads);
-  console.log('[Admin] Intent detected:', JSON.stringify(intent));
-
-  // LOOKUP: find client by name
-  if (intent.intent === 'lookup' && intent.clientName) {
-    const matches = findLeadsByName(intent.clientName);
-    if (matches.length === 0) {
-      await sendMessage(denisPhone, `❌ לא מצאתי לקוח בשם "${intent.clientName}" במערכת.`);
-      return;
-    }
-    const lead = matches[0];
-    upsertLead(denisPhone, { lastDiscussedPhone: lead.phone });
-    const summary = await summarizeFromHistory(lead);
-    await sendMessage(denisPhone, summary);
-    return;
-  }
-
-  // SUMMARIZE NEW: summarize raw client info
-  if (intent.intent === 'summarize_new') {
-    const summary = await summarizeClient(text);
-    await sendMessage(denisPhone, summary);
-    // If phone detected, save as new lead
-    if (intent.phone) {
-      upsertLead(intent.phone, {
-        phone: intent.phone,
-        name: intent.clientName,
-        lastMessageAt: new Date().toISOString()
-      });
-      upsertLead(denisPhone, { lastDiscussedPhone: intent.phone });
-    }
-    return;
-  }
-
-  // UPDATE LEAD: add phone/info to last discussed client
-  if (intent.intent === 'update_lead') {
-    const targetPhone = intent.phone && intent.phone !== denisPhone ? intent.phone : lastPhone;
-    if (!targetPhone) {
-      await sendMessage(denisPhone, '❓ לא ברור לאיזה לקוח. אמור קודם שם לקוח.');
-      return;
-    }
-    const updates = {};
-    if (intent.newPhone) updates.phone = intent.newPhone;
-    if (intent.clientName) updates.name = intent.clientName;
-    if (intent.extraInfo) updates.notes = intent.extraInfo;
-    
-    if (Object.keys(updates).length > 0) {
-      upsertLead(targetPhone, updates);
-      const msgs = Object.entries(updates)
-        .map(([k,v]) => `${k === 'phone' ? '📱 טלפון' : k === 'name' ? '👤 שם' : '📝 הערה'}: ${v}`)
-        .join('\n');
-      const lead = getLead(updates.phone || targetPhone);
-      await sendMessage(denisPhone, `✅ עודכן${lead && lead.name ? ' ל-' + lead.name : ''}:\n${msgs}`);
-    } else {
-      await sendMessage(denisPhone, '❓ לא הבנתי מה לעדכן. נסה שוב.');
-    }
-    return;
-  }
-
-  // PROPOSAL: natural language proposal
-  if (intent.intent === 'proposal') {
-    const nlResult = parseNaturalCommand(text);
-    if (nlResult) {
-      await sendMessage(denisPhone, `⏳ מייצר הצעה (${nlResult.program} | ₪${nlResult.price}) ל-${nlResult.phone}...`);
-      try {
-        await generateAndSendProposal(nlResult.phone, nlResult.program, nlResult.price);
-        await sendMessage(denisPhone, `✅ הצעה נשלחה ל-${nlResult.phone}`);
-      } catch (err) {
-        await sendMessage(denisPhone, `❌ שגיאה: ${err.message}`);
+  if (textToAnalyze.length < 40 && !hasTaskVerb) {
+    const nameToSearch = textToAnalyze.replace(/^(מה עם|מה קורה עם|תסכמ|סכמ|תן לי|מידע על)\s*/i, '').trim();
+    if (nameToSearch.length >= 2) {
+      const matches = findLeadsByName(nameToSearch);
+      if (matches.length > 0) {
+        const lead = matches[0];
+        upsertLead(denisPhone, { lastDiscussedPhone: lead.phone });
+        const summary = await summarizeFromHistory(lead);
+        await sendMessage(denisPhone, summary);
+        return;
       }
-      return;
     }
   }
 
-  // FALLBACK: if message is long — always summarize it
-  if (text.length > 60) {
-    const summary = await summarizeClient(text);
+  // Long text = new client summary
+  if (t.length > 70 && !hasTaskVerb) {
+    const summary = await summarizeClient(t);
     await sendMessage(denisPhone, summary);
     return;
   }
 
-  // SHORT message with proposal keywords — ask for client details
-  const proposalKeywords = ['הצעת מחיר', 'הצעה', 'לבנות הצעה', 'proposal', 'לשלוח הצעה', 'תבני הצעה', 'תכיני הצעה'];
-  if (proposalKeywords.some(k => text.includes(k))) {
+  // Natural language proposal request
+  if (/הצע|proposal|לשלוח הצעה|תבנה הצעה/i.test(textToAnalyze)) {
     await sendMessage(denisPhone,
-      'כדי לבנות הצעה, שלח פרטי הלקוח בפורמט חופשי, לדוגמה:\n\n' +
-      'שם: יוסי כהן\n' +
-      'עסק: מספרה תל אביב\n' +
-      'מצב: עובד לבד, אין לקוחות חדשים\n' +
-      'רוצה: להגדיל הכנסה\n' +
-      'עצר אותו: אין זמן ללמוד\n' +
-      'נייד: 05XXXXXXXX\n' +
-      'מחיר שדיברנו: 13,900\n\n' +
-      'ואני אבנה את הסיכום + הצעה תוך שניות ⚡'
+      'כדי לבנות הצעה שלח פרטי הלקוח:\n\nשם:\nעסק:\nנייד:\nמטרה:\nמחיר שדיברנו:\n\nאו: הצעה | נייד | מסלול | מחיר'
     );
     return;
   }
 
-  // LAUGHTER DETECTION — חחחח, haha, lol, 😂
-  if (/^[ח]{2,}$|^(ha){2,}|^lol$|^haha|^😂|^🤣/i.test(text.trim())) {
+  // ═══════════════════════════════════════════
+  // 6. LAUGHTER & JOKES
+  // ═══════════════════════════════════════════
+  if (/^[ח]{2,}$|^(ha){2,}|^lol$|^haha|^😂|^🤣/i.test(t)) {
     const reactions = [
-      'שמחה שצחקת! 😄 רוצה עוד בדיחה?',
-      'חחח גם אני 😂 אני פה כל השבוע!',
+      'חחח גם אני 😂 רוצה עוד בדיחה?',
       'אאאא הצלחתי! 🎉 עוד אחת?',
       'זו הייתה הטובה שלי 😏 יש לי עוד...',
-      'תמיד שמח לשמוע שאתה צוחק 😁 רוצה עוד?'
+      'שמחה שצחקת! 😄 רוצה עוד?'
     ];
     await sendMessage(denisPhone, reactions[Math.floor(Math.random() * reactions.length)]);
     return;
   }
 
-  // JOKES & HUMOR
-  const jokeWords = ['בדיחה', 'בדיחות', 'תספרי', 'תצחיקי', 'ספרי', 'עוד אחת', 'עוד בדיחה', 'עוד', 'humor', 'joke', 'צחוק', 'מצחיק', 'תצחיקי'];
-  // Only trigger for joke context if 'עוד' alone — check short messages
-  const isJokeRequest = jokeWords.some(w => text.includes(w)) && (text.length < 15 || text.includes('בדיחה') || text.includes('צחוק') || text.includes('תצחיקי'));
-  if (isJokeRequest) {
-    const axios = require('axios');
+  if (/בדיחה|ספר.*בדיחה|תצחיק|joke|עוד בדיחה|עוד אחת/i.test(t)) {
     try {
-      const resp = await axios.post('https://api.anthropic.com/v1/messages', {
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: "ספרי בדיחה קצרה ומצחיקה בעברית על מכירות, עסקים, AI, או חיי היומיום. עד 4 שורות עם פואנטה. רק הבדיחה, בלי הקדמות." }]
-      }, {
-        headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }
-      });
-      const joke = resp.data.content[0].text.trim();
+      const joke = await claudeCall(
+        'ספר בדיחה קצרה ומצחיקה בעברית על מכירות, עסקים, או AI. עד 4 שורות עם פואנטה. רק הבדיחה.',
+        'בדיחה בבקשה', 250
+      );
       await sendMessage(denisPhone, '😂 ' + joke + '\n\n— אלונה 🎤');
-    } catch {
-      await sendMessage(denisPhone, 'יצאתי לחפש בדיחה... ומצאתי רק לקוחות שלא סגרו 😅\nאני אלונה, לשירותך!');
-    }
+    } catch { await sendMessage(denisPhone, 'יצאתי לחפש בדיחה... ומצאתי רק לקוחות שלא סגרו 😅'); }
     return;
   }
 
-  // SHORT casual messages — friendly reply
-  const greetings = ['מה שלומך', 'מה שלומכם', 'שלום', 'היי', 'הי', 'בוקר', 'ערב טוב', 'לילה טוב', 'מה נשמע', 'מה קורה', 'תודה', 'כל הכבוד', 'יפה', 'מעולה', 'בסדר', 'אלונה', 'עוזרת'];
-  if (greetings.some(g => text.includes(g))) {
-    const funnyGreetings = [
-      'מעולה דניס 😊\nאני אלונה העוזרת שלך, תמיד לשירותך\nבמה אוכל לסייע לך?',
-      'דניס! סוף סוף 😄\nישבתי כאן ומחכה לך...\nאני אלונה, במה אוכל לעזור?',
-      'הא, דניס! 👋\nאלונה כאן — מוכנה לסגור עסקאות!\nמה עושים היום?',
-      'שלום לך דניס! 🌟\nאלונה לשירותך — קפה עוד לא המצאתי, אבל הצעות מחיר כן 😄\nבמה אוכל לעזור?'
-    ];
-    const pick = funnyGreetings[Math.floor(Math.random() * funnyGreetings.length)];
-    await sendMessage(denisPhone, pick);
-    return;
-  }
-
-  // SKILL-BASED RESPONSE — check if a marketing/sales skill applies
-  const detectedSkill = detectSkill(text);
-  if (detectedSkill && text.length > 10) {
-    try {
-      const skillResponse = await respondWithSkill(text, detectedSkill);
-      if (skillResponse) {
-        await sendMessage(denisPhone, '🎯 ' + skillResponse);
-        return;
-      }
-    } catch (skillErr) {
-      console.error('[Skill] Error:', skillErr.message);
-    }
-  }
-
-  // UNKNOWN SHORT MESSAGE — Claude responds as Alona
+  // ═══════════════════════════════════════════
+  // 7. ALONA PERSONA — all other messages
+  // ═══════════════════════════════════════════
   try {
-    const axios = require('axios');
-    const resp = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-sonnet-4-6',
-      max_tokens: 200,
-      system: 'אתה אלונה, עוזרת AI מצחיקה וחמה של דניס, איש מכירות. עונה בעברית, קצר (עד 3 שורות), עם הומור קל. אל תציגי פקודות. פשוט שוחח.',
-      messages: [{ role: 'user', content: text }]
-    }, {
-      headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }
-    });
-    await sendMessage(denisPhone, resp.data.content[0].text.trim());
+    const response = await claudeCall(ALONA_SYSTEM, textToAnalyze || t, 250);
+    await sendMessage(denisPhone, response);
   } catch {
     await sendMessage(denisPhone, 'אני כאן דניס! 😊 במה אוכל לעזור?');
   }
