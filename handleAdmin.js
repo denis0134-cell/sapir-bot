@@ -136,7 +136,7 @@ async function handleDenisAdmin(phone, text) {
 
   // ═══ 1.7 QUICK SEND COMMAND ══
   // "תשלחי ללקוחה", "שלחי לה", "שלח" = send last draft to last lead
-  if (/^(תשלחי|שלחי|שלח|תשלח)\s*(ל(לקוח|לקוחה|ה|ו|[א-ת]{2,10}))?$/i.test(t)) {
+  if (/^(תשלחי|שלחי|שלח|תשלח)([ ]+(ל(לקוח|לקוחה|ה|ו)|WhatsApp|את)?)?$/i.test(t) || t === 'תשלחי' || t === 'שלחי' || t === 'שלח') {
     const nameMatch = t.match(/ל([א-ת]{2,15})$/);
     const name = nameMatch ? nameMatch[1] : null;
     // Route to SEND_TO_LEAD with name if extracted
@@ -156,10 +156,15 @@ async function handleDenisAdmin(phone, text) {
       );
       return;
     }
-    const leadName = targetLead.name || targetLead.phone;
-    await sendMessage(denisPhone, '📤 שולחת ל*' + leadName + '* (' + targetLead.phone + '):\n\n' + draft);
+    const leadName = targetLead.name || null;
+    // Replace [שם] placeholder with actual name
+    const finalDraft = leadName
+      ? draft.replace(/\[שם\]/g, leadName).replace(/היי,/g, 'היי ' + leadName + ',')
+      : draft.replace(/\[שם\]/g, '').replace(/היי,/g, 'היי,');
+
+    await sendMessage(denisPhone, '📤 שולחת ל*' + (leadName || targetLead.phone) + '*:\n\n' + finalDraft);
     try {
-      await sendMessage(targetLead.phone, draft);
+      await sendMessage(targetLead.phone, finalDraft);
       upsertLead(targetLead.phone, {
         status: 'follow_up',
         lastFollowupAt: new Date().toISOString(),
@@ -711,11 +716,15 @@ async function handleDenisAdmin(phone, text) {
 
       // Confirm + send
       const leadName = targetLead.name || targetLead.phone;
+      const finalMsg = leadName
+        ? msgToSend.replace(/\[שם\]/g, leadName).replace(/היי,/g, 'היי ' + leadName + ',')
+        : msgToSend.replace(/\[שם\]/g, '').replace(/היי,/g, 'היי,');
+
       await sendMessage(denisPhone,
-        '📤 שולחת ל*' + leadName + '* (' + targetLead.phone + '):\n\n' + msgToSend
+        '📤 שולחת ל*' + (leadName || targetLead.phone) + '*:\n\n' + finalMsg
       );
       try {
-        await sendMessage(targetLead.phone, msgToSend);
+        await sendMessage(targetLead.phone, finalMsg);
         upsertLead(targetLead.phone, {
           status: 'follow_up',
           lastFollowupAt: new Date().toISOString(),
@@ -848,7 +857,12 @@ async function handleDenisAdmin(phone, text) {
             lastResponse: followupMsg,
             lastFollowupDraft: followupMsg
           });
-          await sendMessage(denisPhone, followupMsg + '\n\n_לשלוח? כתוב: "תשלחי" או "שלחי ל' + (nameGuess || 'ליד') + '"_');
+          // Replace [שם] with extracted name
+          const cleanMsg = nameGuess
+            ? followupMsg.replace(/\[שם\]/g, nameGuess).replace(/היי,/g, 'היי ' + nameGuess + ',')
+            : followupMsg.replace(/\[שם\]/g, '').replace(/היי,/g, 'היי,');
+          upsertLead(denisPhone, { lastFollowupDraft: cleanMsg });
+          await sendMessage(denisPhone, cleanMsg + '\n\n_לשלוח? כתוב: *תשלחי*_');
         } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
         return;
       }
