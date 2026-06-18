@@ -111,6 +111,8 @@ ${skillContent}
 - סגנון חם ומקצועי
 - אורך: עד 10 שורות (אלא אם מבקשים יותר)`;
 
+  console.log('[Skill] Calling Claude for skill:', skillName, 'text length:', text.length, 'system length:', system.length);
+
   const response = await axios.post('https://api.anthropic.com/v1/messages', {
     model: 'claude-sonnet-4-6',
     max_tokens: 800,
@@ -121,10 +123,13 @@ ${skillContent}
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
       'Content-Type': 'application/json'
-    }
+    },
+    timeout: 30000
   });
 
-  return response.data.content[0].text.trim();
+  const result = response.data.content[0].text.trim();
+  console.log('[Skill] Got response, length:', result.length);
+  return result;
 }
 
 module.exports = { detectSkill, loadSkill, respondWithSkill };
