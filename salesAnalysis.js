@@ -242,7 +242,43 @@ async function writeMarketingAsset(type, context) {
   return await claudeCall(system, context, 800);
 }
 
+
+// ══════════════════════════════════════════════
+// 7. Auto-extract lead data from analysis
+// ══════════════════════════════════════════════
+const EXTRACT_SYSTEM = `Extract lead info from a sales conversation. Return ONLY valid JSON, nothing else, no backticks.
+
+{
+  "name": "first name only or null",
+  "profession": "job/business type or null",
+  "painPoints": ["pain 1", "pain 2"],
+  "goal": "what they want or null",
+  "mainObjection": "main hesitation or null",
+  "status": "diagnosed",
+  "closingProbability": 65,
+  "suggestedFollowupDays": 3,
+  "followupNote": "one line context for follow-up"
+}
+
+closingProbability: 0-100 based on signals in the conversation.
+suggestedFollowupDays: 1=tomorrow, 2-3=this week, 7=next week, 14=two weeks.
+If a field is unknown use null.`;
+
+async function extractLeadData(originalText, analysis) {
+  try {
+    const combined = 'שיחה:\n' + originalText.substring(0, 1200) +
+      '\n\nניתוח (קיצור):\n' + analysis.substring(0, 600);
+    const raw = await claudeCall(EXTRACT_SYSTEM, combined, 350);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch (e) {
+    console.error('[ExtractLead] Error:', e.message);
+    return null;
+  }
+}
+
 module.exports = {
+  extractLeadData,
   analyzeSalesConversation,
   writeFollowupMessages,
   writeCustomFollowup,
