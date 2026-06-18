@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "updatedAt": "2025-06-18",
+  "about": {
+    "denis": {
+      "name": "דניס פול",
+      "role": "איש מכירות בכיר",
+      "company": "מכללת ספיר זיסמן",
+      "instagram": "@__denis.pol__",
+      "phone": "972509698121",
+      "goal": "לשנות חיים של אנשים דרך מכירות",
+      "peakPerformance": "17 סגירות בחודש"
+    },
+    "academy": {
+      "name": "מכללת ספיר זיסמן",
+      "founders": ["ספיר זיסמן - מאסטר NLP, 120K+ עוקבים", "איתי סלע - מומחה AI ואוטומציות"],
+      "manager": "דור",
+      "website": "sapzis.co.il",
+      "calendarLink": "https://calendar.app.google/1EhEf1EWm8iKEaZu8"
+    }
+  },
+  "programs": {
+    "ABM": {
+      "name": "AI Business Mastery",
+      "duration": "6 שבועות",
+      "price": "13,900 ₪",
+      "description": "הטמעת AI מעשית בעסק — לייב, מנטורינג, כלים",
+      "includes": ["6 מפגשי לייב", "מנטור אישי", "AI Toolkit", "קהילת WhatsApp"]
+    },
+    "LDB": {
+      "name": "Let's Do Business",
+      "price": "18,900 ₪",
+      "description": "ליווי עסקי מלא להכפלת מחזור",
+      "includes": ["4 פגישות פיצוח 1x1", "12 זומים קבוצתיים", "20+ קורסים", "תמיכה יומיומית"]
+    },
+    "BOTH": {
+      "name": "ABM + LDB משולב",
+      "price": "24,900 ₪",
+      "description": "הכל ביחד — AI + ליווי עסקי",
+      "guarantee": "הכפלת מחזור ב-90 יום או החזר מלא"
+    }
+  },
+  "salesMethodology": {
+    "approach": "שיחה טבעית, שתיקה, שאלות אישור, שיקוף",
+    "methodology": "שיטת רועי עוביה",
+    "tokens": ["בעיה/צורך", "עזרה מקצועית", "AI coaching", "ספיר זיסמן ספציפית"],
+    "keyInsight": "לא למכור — להכיר. לתת לנשום. אמון = המפתח לסגירה"
+  },
+  "botCommands": {
+    "proposal": "הצעה | [טלפון] | [ABM/LDB/ABM+LDB] | [מחיר]",
+    "summary": "סכם | [פרטי לקוח]",
+    "form": "טופס",
+    "learn": "למדי | [כלל חדש]",
+    "lookupClient": "[שם לקוח]",
+    "joke": "ספרי בדיחה"
+  },
+  "designSystem": {
+    "colors": {"gold": "#C9A84C", "dark": "#0a0a0a"},
+    "font": "Heebo RTL",
+    "ctaText": "📅 שריין שיחה עם דניס ←",
+    "whatsapp": "wa.me/972509698121"
+  },
+  "knowledge": []
+}
