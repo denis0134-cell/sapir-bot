@@ -43,7 +43,7 @@ SAVE_CHECKIN     — שליחת תשובות לשאלות הצ'ק אין (מספ
 LIST_GOALS       — הצגת מטרות פעילות
 LIST_DECISIONS   — הצגת החלטות אחרונות
 
-החזר JSON בלבד (בלי ```):
+החזר JSON בלבד (בלי backticks):
 {
   "intent": "INTENT_NAME",
   "params": {
