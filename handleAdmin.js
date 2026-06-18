@@ -1,4 +1,5 @@
 const { sendMessage, notifyDenis } = require('./whatsapp');
+const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { getLead, upsertLead, findLeadsByName, getNamedLeads } = require('./leads');
 const { summarizeClient, summarizeFromHistory } = require('./claude');
 const { generateAndSendProposal } = require('./proposalHelper');
@@ -337,17 +338,27 @@ async function handleDenisAdmin(denisPhone, text) {
     return;
   }
 
+  // SKILL-BASED RESPONSE — check if a marketing/sales skill applies
+  const detectedSkill = detectSkill(text);
+  if (detectedSkill && text.length > 10) {
+    try {
+      const skillResponse = await respondWithSkill(text, detectedSkill);
+      if (skillResponse) {
+        await sendMessage(denisPhone, '🎯 ' + skillResponse);
+        return;
+      }
+    } catch (skillErr) {
+      console.error('[Skill] Error:', skillErr.message);
+    }
+  }
+
   // UNKNOWN SHORT MESSAGE — Claude responds as Alona
   try {
     const axios = require('axios');
     const resp = await axios.post('https://api.anthropic.com/v1/messages', {
       model: 'claude-sonnet-4-6',
       max_tokens: 200,
-      system: `אתה אלונה, עוזרת AI מצחיקה וחמה של דניס, איש מכירות.
-אתה עונה בעברית, קצר (עד 3 שורות), עם הומור קל.
-אם דניס אומר משהו כמו יאללה/בסדר/כן/אוקי/נהדר — הגיבי בחמימות ושאלי במה לעזור.
-אם הוא מביע רגש — הגיבי בהתאם.
-אל תציגי פקודות. אל תסבירי מה את. פשוט שוחח.`,
+      system: 'אתה אלונה, עוזרת AI מצחיקה וחמה של דניס, איש מכירות. עונה בעברית, קצר (עד 3 שורות), עם הומור קל. אל תציגי פקודות. פשוט שוחח.',
       messages: [{ role: 'user', content: text }]
     }, {
       headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' }
