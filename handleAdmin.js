@@ -186,6 +186,23 @@ async function handleDenisAdmin(phone, text) {
     return;
   }
 
+  // ═══ 3.4 AUTO-DETECT: Long/multiline text = transcription ═══
+  // If Denis pastes a raw transcription without trigger words
+  const lineCount = t.split('\n').length;
+  const looksLikeTranscription = (t.length > 350) ||
+    (lineCount > 5 && t.length > 150) ||
+    (/[:\u05F4]\s*.{5,}\n/.test(t) && t.length > 100); // "Name: text\n" pattern
+
+  if (looksLikeTranscription) {
+    await sendMessage(denisPhone, '⏳ מנתח... (15-30 שניות)');
+    try {
+      const analysis = await analyzeSalesConversation(t);
+      await splitAndSend(denisPhone, analysis);
+      upsertLead(denisPhone, { lastRequest: t, lastResponse: analysis });
+    } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
+    return;
+  }
+
   // ═══ 3.5 PENDING CHECK-IN ANSWER ═══
   // If Denis just received check-in questions and sends numbered answers
   const pendingCheckin = getPendingCheckin();
@@ -221,7 +238,14 @@ async function handleDenisAdmin(phone, text) {
 
     case 'SALES_ANALYSIS': {
       const text = params.text || t;
-      if (text.length < 40) { await sendMessage(denisPhone, '📋 שלח את תוכן השיחה'); break; }
+      // Text must be an actual transcription: multiline or very long
+      const isRealTranscription = text.length > 300 ||
+        (text.split('\n').length > 4 && text.length > 100);
+      if (!isRealTranscription) {
+        await sendMessage(denisPhone,
+          '📋 הדבק את תמלול השיחה ישירות כאן\n\nטקסט מלא — כמה שיותר מדויק = ניתוח טוב יותר');
+        break;
+      }
       await sendMessage(denisPhone, '⏳ מנתח... (15-30 שניות)');
       try {
         const analysis = await analyzeSalesConversation(text);
