@@ -8,11 +8,11 @@ const SKILL_MAP = {
   // ── Ads & Content ──
   'ad-creative':        ['מודעה', 'פרסומת', 'פייסבוק', 'אינסטגרם', 'ad', 'creative', 'advertising', 'קריאייטיב', 'banner'],
   'claude-ads-daniel':  ['קמפיין פרסום', 'ads campaign', 'google ads', 'פרסום ממומן'],
-  'viral-content':      ['ויראלי', 'viral', 'פוסט', 'רילס', 'reels', 'סטורי', 'story', 'תוכן ברשתות'],
+  'viral-content':      ['ויראלי', 'viral', 'פוסט', 'פייסבוק', 'רילס', 'reels', 'סטורי', 'story', 'תוכן ברשתות', 'המצא', 'המציא', 'צור לי', 'כתוב לי פוסט', 'תכתבי פוסט', 'לינקדאין', 'linkedin', 'טיקטוק', 'תוכן יומי'],
   'content-creation':   ['יצירת תוכן', 'content plan', 'לוח תוכן', 'content calendar', 'יוצר תוכן'],
   'infographic':        ['אינפוגרפיק', 'infographic', 'ויזואל', 'visual data'],
   // ── Copywriting ──
-  'copywriting':        ['קופי', 'כתיבה שיווקית', 'copy', 'כותרת', 'headline', 'CTA', 'נוסח', 'טקסט שיווקי', 'לכתוב', 'תכתב'],
+  'copywriting':        ['קופי', 'כתיבה שיווקית', 'copy', 'כותרת', 'headline', 'CTA', 'נוסח', 'טקסט שיווקי', 'לכתוב', 'תכתב', 'תכתבי', 'כתוב לי', 'כתבי לי', 'נוסח לי', 'תנסחי'],
   'keith-copywriter':   ['שכתב', 'copywriter', 'marketing copy'],
   'copy-editing':       ['לערוך טקסט', 'שפר', 'copy edit', 'לתקן'],
   'keith-landing-page-optimizer': ['שפר דף', 'אופטימיזציה לדף', 'landing optimization'],
