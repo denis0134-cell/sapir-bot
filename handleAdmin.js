@@ -4,6 +4,7 @@ const { summarizeClient, summarizeFromHistory } = require('./claude');
 const { generateAndSendProposal } = require('./proposalHelper');
 const { detectAdminIntent } = require('./adminIntent');
 const { detectSkill, respondWithSkill } = require('./skillRouter');
+const { addLesson, parseLessonFromText, formatMemoryForPrompt } = require('./alonaMemory');
 const axios = require('axios');
 
 const DENIS_PHONE = process.env.DENIS_PHONE || '972509698121';
@@ -136,6 +137,21 @@ async function handleDenisAdmin(denisPhone, text) {
   }
 
   // ═══════════════════════════════════════════
+  // 3.5 CORRECTION / LEARNING
+  // ═══════════════════════════════════════════
+  const correctionWords = ['טעית', 'לא מה שרציתי', 'זה לא נכון', 'תתקני', 'תתקן', 'זה לא מה שביקשתי', 'לא ביקשתי', 'לא הבנת', 'טעות', 'שגית', 'בפעם הבאה', 'למדי'];
+  if (correctionWords.some(w => t.includes(w))) {
+    const lesson = await parseLessonFromText(t);
+    if (lesson) {
+      addLesson(lesson);
+      await sendMessage(denisPhone, `✅ הבנתי ולמדתי!\n\n📝 "${lesson}"\n\nלא אחזור על זה.`);
+    } else {
+      await sendMessage(denisPhone, 'מצטערת 😔 הסבירי לי מה הטעות ומה תרצה אחרת, ואזכור לעתיד.');
+    }
+    return;
+  }
+
+  // ═══════════════════════════════════════════
   // 4. SKILL-BASED TASK DETECTION (PRIORITY)
   // ═══════════════════════════════════════════
   // Remove "אלונה" prefix if present (calling by name before a task)
@@ -241,7 +257,9 @@ async function handleDenisAdmin(denisPhone, text) {
   // 7. ALONA PERSONA — all other messages
   // ═══════════════════════════════════════════
   try {
-    const response = await claudeCall(ALONA_SYSTEM, textToAnalyze || t, 250);
+    const memory = formatMemoryForPrompt();
+    const systemWithMemory = ALONA_SYSTEM + memory;
+    const response = await claudeCall(systemWithMemory, textToAnalyze || t, 250);
     await sendMessage(denisPhone, response);
   } catch {
     await sendMessage(denisPhone, 'אני כאן דניס! 😊 במה אוכל לעזור?');
