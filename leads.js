@@ -27,11 +27,25 @@ function upsertLead(phone, updates) {
   const db = readDB();
   db[phone] = {
     phone,
-    name: null, profession: null, business: null,
-    currentRevenue: null, goal: null, painPoints: [], notes: null,
+    // Identity
+    name: null, profession: null, business: null, email: null, location: null,
+    // Discovery
+    currentRevenue: null, targetRevenue: null,
+    goal: null, painPoints: [], objections: [],
+    notes: null, lastNote: null, lastObjection: null,
+    // CRM Status
     status: 'new',
+    temperature: null,       // cold | warm | hot
+    source: 'unknown',       // webinar | referral | organic | paid | cold
+    closingProbability: null, // 0-100
+    // Proposal
     proposalUrl: null, proposalProgram: null, proposalPrice: null,
+    // Follow-up
     followupCount: 0, lastFollowupAt: null,
+    nextFollowupDate: null,  // ISO date string
+    nextFollowupAction: null, // call | whatsapp | email | wait
+    botRecommendation: null,
+    // Timing
     lastMessageAt: null, lastResponseAt: new Date().toISOString(),
     conversation: [], createdAt: new Date().toISOString(),
     ...(db[phone] || {}),
