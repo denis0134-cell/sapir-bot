@@ -44,6 +44,7 @@ LIST_GOALS       — הצגת מטרות פעילות
 LIST_DECISIONS   — הצגת החלטות אחרונות
 START_FOLLOWUP_SEQUENCE — להתחיל רצף פולואפ אוטומטי עם ליד (שולח הודעות לאורך ימים)
 STOP_FOLLOWUP_SEQUENCE  — לעצור רצף פולואפ פעיל
+SEND_TO_LEAD            — לשלוח הודעה ללקוח/ה (תשלחי לה, שלח ללקוח, שלחי לרחל)
 
 החזר JSON בלבד (בלי backticks):
 {
