@@ -217,12 +217,12 @@ async function handleDenisAdmin(phone, text) {
     return;
   }
 
-  // ═══ 3.4 AUTO-DETECT: Long/multiline text = transcription ═══
-  // If Denis pastes a raw transcription without trigger words
+  // ═══ 3.4 AUTO-DETECT: Real transcription only (must have dialogue patterns) ═══
+  // Dialogue pattern: "Name: text" OR "דניס: text" OR "לקוח: text"
   const lineCount = t.split('\n').length;
-  const looksLikeTranscription = (t.length > 350) ||
-    (lineCount > 5 && t.length > 150) ||
-    (/[:\u05F4]\s*.{5,}\n/.test(t) && t.length > 100); // "Name: text\n" pattern
+  const hasDialogue = /^[א-תa-zA-Z\w]{1,15}\s*[:\u05C3]\s*.{8,}/m.test(t);
+  const hasTurnTaking = (t.match(/\n[א-תa-zA-Z\w]{1,15}\s*:/g) || []).length >= 2;
+  const looksLikeTranscription = t.length > 250 && (hasDialogue || hasTurnTaking) && lineCount >= 4;
 
   if (looksLikeTranscription) {
     await sendMessage(denisPhone, '⏳ מנתח... (15-30 שניות)');
@@ -340,16 +340,26 @@ async function handleDenisAdmin(phone, text) {
           if (matches.length > 0) {
             const lead = matches[0];
             const days = lead.lastMessageAt ? Math.floor((Date.now() - new Date(lead.lastMessageAt)) / 86400000) : 3;
-            msg = await writeFollowupMessages(lead, lead.status || 'לא ענה', days);
+            // Merge lead data with any extra context from message
+            const enriched = Object.assign({}, lead, {
+              lastNote: params.context || lead.lastNote,
+              lastObjection: params.question || lead.lastObjection
+            });
+            msg = await writeFollowupMessages(enriched, enriched.status || 'לא ענה', days);
           } else {
-            msg = await writeCustomFollowup(t);
+            // Name given but lead not found — use free context
+            msg = await writeCustomFollowup(t + (lastCtx ? '\n\nהקשר: ' + lastCtx.substring(0, 400) : ''));
           }
+        } else if (params.context && params.context.length > 30) {
+          // Context provided inline — write directly, no questions
+          msg = await writeCustomFollowup(params.context + (lastCtx ? '\n\nהקשר שיחה קודמת: ' + lastCtx.substring(0, 300) : ''));
         } else if (lastCtx) {
-          // No name given — use last conversation context
-          const contextualRequest = t + '\n\n---\nהקשר השיחה שניתחנו:\n' + lastCtx;
-          msg = await writeCustomFollowup(contextualRequest);
+          // Use last conversation context
+          msg = await writeCustomFollowup(t + '\n\nהקשר: ' + lastCtx.substring(0, 500));
         } else {
-          msg = await writeCustomFollowup(t);
+          // No context at all — ask once clearly
+          await sendMessage(denisPhone, 'שלח לי את הפרטים:\n\nשם + טלפון + מה דיברתם + מה עצר אותם');
+          break;
         }
         await sendMessage(denisPhone, msg);
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
@@ -716,6 +726,17 @@ async function handleDenisAdmin(phone, text) {
             return;
           }
         } catch {}
+      }
+
+      // Long message with phone number = follow-up context
+      if (t.length > 80 && /05\d{8}|972\d{9}/.test(t)) {
+        await sendMessage(denisPhone, '⏳ כותבת פולואפ...');
+        try {
+          const followupMsg = await writeCustomFollowup(t + (lastCtx ? '\n\nהקשר: ' + lastCtx.substring(0, 400) : ''));
+          upsertLead(denisPhone, { lastRequest: t, lastResponse: followupMsg });
+          await sendMessage(denisPhone, followupMsg);
+        } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
+        return;
       }
 
       // Short text = lead name lookup
