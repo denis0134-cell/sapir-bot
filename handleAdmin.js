@@ -257,26 +257,64 @@ async function handleDenisAdmin(phone, text) {
 
     case 'SALES_ANALYSIS': {
       const text = params.text || t;
-      // Text must be an actual transcription: multiline or very long
       const isRealTranscription = text.length > 300 ||
         (text.split('\n').length > 4 && text.length > 100);
       if (!isRealTranscription) {
         await sendMessage(denisPhone,
-          '📋 הדבק את תמלול השיחה ישירות כאן\n\nטקסט מלא — כמה שיותר מדויק = ניתוח טוב יותר');
+          '📋 הדבק את תמלול השיחה ישירות כאן\n\nטקסט מלא = ניתוח מדויק יותר');
         break;
       }
       await sendMessage(denisPhone, '⏳ מנתח... (15-30 שניות)');
       try {
         const analysis = await analyzeSalesConversation(text);
         await splitAndSend(denisPhone, analysis);
-        // Extract name from analysis for "him/her" references
-        const nameMatch = analysis.match(/שם[^:：]*[:：]\s*([^\n]+)/);
-        const analyzedName = nameMatch ? nameMatch[1].trim().substring(0, 30) : null;
-        upsertLead(denisPhone, {
-          lastRequest: text,
-          lastResponse: analysis,
-          lastAnalyzedName: analyzedName
-        });
+        upsertLead(denisPhone, { lastRequest: text, lastResponse: analysis });
+
+        // ── Auto-save lead to CRM ──
+        try {
+          const leadData = await extractLeadData(text, analysis);
+          if (leadData && leadData.name) {
+            const followupDays = leadData.suggestedFollowupDays || 3;
+            const followupDate = new Date();
+            followupDate.setDate(followupDate.getDate() + followupDays);
+            const followupDateStr = followupDate.toISOString().split('T')[0];
+
+            const existing = findLeadsByName(leadData.name);
+            const leadPhone = existing.length > 0 ? existing[0].phone : ('crm_' + Date.now());
+
+            upsertLead(leadPhone, {
+              name: leadData.name,
+              profession: leadData.profession || null,
+              painPoints: Array.isArray(leadData.painPoints) ? leadData.painPoints : [],
+              goal: leadData.goal || null,
+              lastObjection: leadData.mainObjection || null,
+              status: leadData.status || 'diagnosed',
+              closingProbability: leadData.closingProbability || null,
+              nextFollowupDate: followupDateStr,
+              nextFollowupAction: 'whatsapp',
+              lastNote: leadData.followupNote || null,
+              botRecommendation: leadData.followupNote || null,
+              lastMessageAt: new Date().toISOString()
+            });
+            upsertLead(denisPhone, { lastDiscussedPhone: leadPhone, lastAnalyzedName: leadData.name });
+
+            const dayName = followupDate.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+            const prob = leadData.closingProbability;
+            const probIcon = prob >= 70 ? '🔥' : prob >= 50 ? '⚡' : '🟡';
+            await sendMessage(denisPhone,
+              '─────────────────\n' +
+              '📋 *שמרתי בCRM:*\n\n' +
+              '*' + leadData.name + '*' + (leadData.profession ? ' — ' + leadData.profession : '') + '\n' +
+              (leadData.painPoints && leadData.painPoints[0] ? 'כאב: ' + leadData.painPoints[0] + '\n' : '') +
+              (leadData.goal ? 'מטרה: ' + leadData.goal + '\n' : '') +
+              (prob ? probIcon + ' סיכוי: ' + prob + '%\n' : '') +
+              '\n🗓 פולואפ: ' + dayName + '\n' +
+              (leadData.followupNote ? '💡 ' + leadData.followupNote + '\n' : '') +
+              '\nלשנות: "פולואפ עם ' + leadData.name + ' ב-[תאריך]"'
+            );
+          }
+        } catch (crmErr) { console.error('[AutoCRM]', crmErr.message); }
+
       } catch (e) { await sendMessage(denisPhone, '❌ ' + e.message); }
       break;
     }
