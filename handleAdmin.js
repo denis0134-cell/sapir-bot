@@ -120,7 +120,7 @@ async function handleDenisAdmin(phone, text) {
   }
 
   // ═══ 1.5 LEAD FORM SHORTCUT ═══
-  if (/^טופס ליד|^תן לי טופס|^פתח טופס|^שלח טופס ליד/i.test(t)) {
+  if (/ליד חדש|יצירת ליד|ליצור ליד|להוסיף ליד|הוסף ליד|צור ליד|טופס ליד|תן לי טופס|פתח טופס|new lead/i.test(t)) {
     const formUrl = (process.env.RAILWAY_PUBLIC_DOMAIN
       ? 'https://' + process.env.RAILWAY_PUBLIC_DOMAIN
       : 'https://sapir-bot-production.up.railway.app') + '/lead-form';
