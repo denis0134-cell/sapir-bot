@@ -12,11 +12,8 @@ const { extractLeadData, generateFollowupSequence, analyzeSalesConversation, wri
 const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport,
   logHealth, getHealthReport, addTask, completeTask, delayTask, getTasks, getTaskList,
-  getMorningQuestions, getEveningQuestions, saveCheckIn, setPendingCheckin, getPendingCheckin, getTodayCheckIn,
-  buildDailyReport, generateWeeklyReport, generateLifeDashboard,
-  calculateScores, getScoresText, storeDecision, getDecisions, formatDecisions,
-  checkAccountability, createGoal, listGoals, getGoalsText, updateGoal,
-  getUserProfile
+  buildDailyReport, storeDecision, getDecisions, formatDecisions,
+  createGoal, listGoals, getGoalsText
 } = require('./personalData');
 const axios = require('axios');
 
@@ -280,22 +277,6 @@ async function handleDenisAdmin(phone, text) {
     return;
   }
 
-  // ═══ 3.5 PENDING CHECK-IN ANSWER ═══
-  // If Denis just received check-in questions and sends numbered answers
-  const pendingCheckin = getPendingCheckin();
-  if (pendingCheckin && /^\d[.:]/.test(t)) {
-    const lines = t.split('\n').map(l => l.replace(/^\d+\.?\s*/, '').trim()).filter(Boolean);
-    const checkin = saveCheckIn(pendingCheckin, lines);
-    const scores = calculateScores();
-    await sendMessage(denisPhone,
-      `✅ ${pendingCheckin === 'morning' ? 'בוקר' : 'ערב'} נרשם!\n\n` +
-      (pendingCheckin === 'evening'
-        ? getScoresText()
-        : `🎯 פוקוס: ${checkin.morningFocus || lines[0] || ''}\n\n${generateLifeDashboard()}`)
-    );
-    return;
-  }
-
   // ═══ 4. NLU ROUTING ═══
   let intentResult;
   try {
@@ -535,17 +516,9 @@ async function handleDenisAdmin(phone, text) {
       break;
     }
 
-    case 'MORNING_CHECKIN': {
-      setPendingCheckin('morning');
-      await sendMessage(denisPhone, getMorningQuestions());
-      break;
-    }
 
-    case 'EVENING_CHECKIN': {
-      setPendingCheckin('evening');
-      await sendMessage(denisPhone, getEveningQuestions());
-      break;
-    }
+
+
 
     case 'DAILY_REPORT': {
       await sendMessage(denisPhone, buildDailyReport() + '\n\n' + getGoalStatus());
@@ -617,10 +590,7 @@ async function handleDenisAdmin(phone, text) {
       break;
     }
 
-    case 'LIST_GOALS': {
-      await sendMessage(denisPhone, getGoalsText());
-      break;
-    }
+
 
     case 'START_FOLLOWUP_SEQUENCE': {
       const name = params.name;
@@ -763,20 +733,11 @@ async function handleDenisAdmin(phone, text) {
       break;
     }
 
-    case 'WEEKLY_REPORT': {
-      await sendMessage(denisPhone, generateWeeklyReport());
-      break;
-    }
 
-    case 'LIFE_DASHBOARD': {
-      await sendMessage(denisPhone, generateLifeDashboard());
-      break;
-    }
 
-    case 'SCORE_CHECK': {
-      await sendMessage(denisPhone, getScoresText());
-      break;
-    }
+
+
+
 
     case 'UPDATE_LEAD_FULL': {
       if (!params.name) { await sendMessage(denisPhone, 'איזה ליד לעדכן?'); break; }
