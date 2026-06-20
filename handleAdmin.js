@@ -13,7 +13,8 @@ const { detectSkill, respondWithSkill } = require('./skillRouter');
 const { setGoal, getGoalStatus, logIncome, logExpense, addDebt, getFinanceReport,
   logHealth, getHealthReport, addTask, completeTask, delayTask, getTasks, getTaskList,
   buildDailyReport, storeDecision, getDecisions, formatDecisions,
-  createGoal, listGoals, getGoalsText
+  createGoal, listGoals, getGoalsText,
+  getPendingCheckin, saveCheckIn, calculateScores, getScoresText, generateLifeDashboard
 } = require('./personalData');
 const axios = require('axios');
 
@@ -83,7 +84,7 @@ async function handleDenisAdmin(phone, text) {
       const leadPhone = parts[1].startsWith('972') ? parts[1] : '972' + parts[1].replace(/^0/, '');
       const lead = getLead(leadPhone) || {};
       upsertLead(denisPhone, { lastDiscussedPhone: leadPhone });
-      await generateAndSendProposal({ ...lead, phone: leadPhone, program: parts[2].toUpperCase(), price: parts[3].replace(/[^0-9]/g, '') });
+      await generateAndSendProposal(leadPhone, parts[2].toUpperCase(), parts[3].replace(/[^0-9]/g, ''));
       await sendMessage(denisPhone, `✅ הצעה נשלחה ל-${lead.name || leadPhone} — ${parts[2]} ₪${parts[3]}`);
     } else {
       await sendMessage(denisPhone, 'פורמט: הצעה | [נייד] | [ABM/LDB/BOTH] | [מחיר]');
@@ -590,7 +591,27 @@ async function handleDenisAdmin(phone, text) {
       break;
     }
 
+    case 'LIST_GOALS': {
+      await sendMessage(denisPhone, getGoalsText());
+      break;
+    }
 
+    case 'WEEKLY_REPORT': {
+      const { generateWeeklyReport } = require('./personalData');
+      await sendMessage(denisPhone, generateWeeklyReport());
+      break;
+    }
+
+    case 'LIFE_DASHBOARD': {
+      await sendMessage(denisPhone, generateLifeDashboard());
+      break;
+    }
+
+    case 'SCORE_CHECK': {
+      const scores = calculateScores();
+      await sendMessage(denisPhone, `📊 הציון שלך:\n\n${getScoresText()}\n\nסך הכל: ${scores.overall || 0}/100`);
+      break;
+    }
 
     case 'START_FOLLOWUP_SEQUENCE': {
       const name = params.name;
