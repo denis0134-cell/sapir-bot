@@ -2,8 +2,7 @@ const { sendMessage, notifyDenis } = require('./whatsapp');
 const { generateResponse, extractLeadInfo, summarizeClient, summarizeFromHistory } = require('./claude');
 const { handleDenisAdmin } = require('./handleAdmin');
 const { getLead, upsertLead, addMessage, getConversation, findLeadsByName, getNamedLeads } = require('./leads');
-const { deployProposal } = require('./netlify');
-const { generateProposalHTML } = require('./proposal');
+const { generateAndSendProposal: _generateAndSendProposalHelper } = require('./proposalHelper');
 
 async function handleIncomingMessage(message) {
   const phone = message.from;
@@ -282,55 +281,9 @@ async function handleLeadMessage(phone, text) {
 }
 
 
-// Safe price formatter — prevents phone numbers being used as price
-function formatPrice(raw) {
-  const num = parseInt(String(raw || '').replace(/[^0-9]/g, ''));
-  if (isNaN(num) || num <= 0 || num > 99999) return '24,900';
-  return num.toLocaleString('he-IL');
-}
-
+// Proposal generation — delegates to proposalHelper (full version with AI headline, Denis photo, client photo)
 async function generateAndSendProposal(phone, program, price) {
-  const lead = getLead(phone) || {};
-  let extracted = {};
-
-  if (lead.conversation?.length) {
-    extracted = await extractLeadInfo(getConversation(phone));
-  }
-
-  const data = {
-    clientName: lead.name || extracted.name || 'לקוח יקר',
-    clientProfession: lead.profession || extracted.profession || '',
-    clientBusiness: lead.business || extracted.business || '',
-    currentRevenue: lead.currentRevenue || extracted.currentRevenue || null,
-    goal: lead.goal || extracted.goal || '',
-    painPoints: lead.painPoints?.length ? lead.painPoints : (extracted.painPoints || []),
-    program: program === 'ABM+LDB' ? 'BOTH' : program,
-    price: formatPrice(price),
-    calendarLink: process.env.CALENDAR_LINK
-  };
-
-  if (data.currentRevenue) {
-    const n = parseInt(data.currentRevenue.replace(/[^0-9]/g, ''));
-    if (!isNaN(n)) data.targetRevenue = `${n * 2}K+`;
-  }
-
-  const html = generateProposalHTML(data);
-  const url = await deployProposal(html, data.clientName);
-
-  const msg = `היי ${data.clientName} 🌟\n\nהכנתי לך הצעה מותאמת אישית — כנס/י לראות:\n\n${url}\n\nשאלות? אני כאן 🙏`;
-  await sendMessage(phone, msg);
-
-  upsertLead(phone, {
-    status: 'proposal_sent',
-    proposalUrl: url,
-    proposalProgram: program,
-    proposalPrice: price,
-    followupCount: 0,
-    lastFollowupAt: new Date().toISOString()
-  });
-
-  addMessage(phone, 'assistant', msg);
-  return url;
+  return await _generateAndSendProposalHelper(phone, program, price);
 }
 
 module.exports = { handleIncomingMessage };
