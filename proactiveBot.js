@@ -2,7 +2,6 @@
  * proactiveBot.js
  * שולחת תזכורות פולואפ לדניס ב-10:00 בבוקר
  */
-const { getGoalStatus } = require('./personalData');
 const { getLeadsDueToday } = require('./leads');
 const { writeFollowupMessages } = require('./salesAnalysis');
 
