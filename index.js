@@ -103,6 +103,10 @@ app.post('/webhook', async (req, res) => {
       for (const msg of messages) {
         if (msg.type === 'text') {
           await handleIncomingMessage({ from: msg.from, text: { body: msg.text.body } });
+        } else if (['audio', 'voice', 'image', 'video', 'document', 'sticker'].includes(msg.type)) {
+          if (msg.from !== process.env.DENIS_PHONE) {
+            await sendMessage(msg.from, 'היי 😊 אני עובד רק עם הודעות טקסט כרגע. כתוב/י לי ואשמח לעזור!');
+          }
         }
       }
     }
